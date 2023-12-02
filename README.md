@@ -1,0 +1,3 @@
+# AOC
+
+For fun
