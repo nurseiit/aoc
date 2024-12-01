@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fs::File,
     io::{BufRead, BufReader},
     iter::zip,
@@ -43,6 +44,24 @@ fn part_one() {
     print!("{}", result);
 }
 
+fn part_two() {
+    let numbers = read_from_file("./src/input.txt");
+
+    let first = numbers.0;
+    let second = numbers.1;
+
+    let count: HashMap<i32, i32> = second.iter().fold(HashMap::new(), |mut acc, number| {
+        *acc.entry(*number).or_insert(0) += 1;
+        acc
+    });
+
+    let result = first.iter().fold(0, |acc, number| {
+        acc + number * count.get(number).unwrap_or(&0)
+    });
+
+    println!("{}", result);
+}
+
 fn main() {
-    part_one();
+    part_two();
 }
