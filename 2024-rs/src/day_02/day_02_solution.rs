@@ -60,7 +60,30 @@ pub mod solution {
         println!("part one: {}", result);
     }
 
+    fn is_tolerable_ok(nums: Vec<i32>) -> bool {
+        for i in 0..nums.len() {
+            let mut copy = nums.to_vec();
+            copy.remove(i);
+            if (is_increasing(copy.to_vec()) || is_decreasing(copy.to_vec()))
+                && is_within_diff_range(copy.to_vec())
+            {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn part_two() {
+        let data = read_from_file("./src/day_02/input.txt");
+        let result = data
+            .iter()
+            .filter(|nums| is_tolerable_ok(nums.to_vec()))
+            .count();
+        println!("part two: {}", result);
+    }
+
     pub fn solve() {
         part_one();
+        part_two();
     }
 }
