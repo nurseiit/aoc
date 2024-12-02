@@ -1,5 +1,5 @@
-use aoc_2024_rs::day_01::day_01_solution;
+use aoc_2024_rs::day_02::day_02_solution;
 
 fn main() {
-    day_01_solution::solution::solve();
+    day_02_solution::solution::solve();
 }
