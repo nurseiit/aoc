@@ -19,7 +19,7 @@ pub mod solution {
             .collect()
     }
 
-    fn is_increasing(nums: Vec<i32>) -> bool {
+    fn is_increasing(nums: &[i32]) -> bool {
         for i in 1..nums.len() {
             if nums[i - 1] >= nums[i] {
                 return false;
@@ -28,7 +28,7 @@ pub mod solution {
         true
     }
 
-    fn is_decreasing(nums: Vec<i32>) -> bool {
+    fn is_decreasing(nums: &[i32]) -> bool {
         for i in 1..nums.len() {
             if nums[i - 1] <= nums[i] {
                 return false;
@@ -37,7 +37,7 @@ pub mod solution {
         true
     }
 
-    fn is_within_diff_range(nums: Vec<i32>) -> bool {
+    fn is_within_diff_range(nums: &[i32]) -> bool {
         for i in 1..nums.len() {
             let diff = (nums[i] - nums[i - 1]).abs();
             if diff < 1 || diff > 3 {
@@ -52,21 +52,19 @@ pub mod solution {
         let result = data
             .iter()
             .filter(|nums| {
-                (is_increasing(nums.to_vec()) || is_decreasing(nums.to_vec()))
-                    && is_within_diff_range(nums.to_vec())
+                (is_increasing(nums) || is_decreasing(nums)) && is_within_diff_range(nums)
             })
             .count();
 
         println!("part one: {}", result);
+        assert_eq!(result, 421);
     }
 
-    fn is_tolerable_ok(nums: Vec<i32>) -> bool {
+    fn is_tolerable_ok(nums: &[i32]) -> bool {
         for i in 0..nums.len() {
             let mut copy = nums.to_vec();
             copy.remove(i);
-            if (is_increasing(copy.to_vec()) || is_decreasing(copy.to_vec()))
-                && is_within_diff_range(copy.to_vec())
-            {
+            if (is_increasing(&copy) || is_decreasing(&copy)) && is_within_diff_range(&copy) {
                 return true;
             }
         }
@@ -75,11 +73,9 @@ pub mod solution {
 
     fn part_two() {
         let data = read_from_file("./src/day_02/input.txt");
-        let result = data
-            .iter()
-            .filter(|nums| is_tolerable_ok(nums.to_vec()))
-            .count();
+        let result = data.iter().filter(|nums| is_tolerable_ok(nums)).count();
         println!("part two: {}", result);
+        assert_eq!(result, 476);
     }
 
     pub fn solve() {
