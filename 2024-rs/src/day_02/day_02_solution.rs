@@ -19,10 +19,45 @@ pub mod solution {
             .collect()
     }
 
+    fn is_increasing(nums: Vec<i32>) -> bool {
+        for i in 1..nums.len() {
+            if nums[i - 1] >= nums[i] {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn is_decreasing(nums: Vec<i32>) -> bool {
+        for i in 1..nums.len() {
+            if nums[i - 1] <= nums[i] {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn is_within_diff_range(nums: Vec<i32>) -> bool {
+        for i in 1..nums.len() {
+            let diff = (nums[i] - nums[i - 1]).abs();
+            if diff < 1 || diff > 3 {
+                return false;
+            }
+        }
+        true
+    }
+
     fn part_one() {
-        let data = read_from_file("./src/day_02/example.txt");
-        assert_eq!(data[0], vec![7, 6, 4, 2, 1]);
-        assert_eq!(data.len(), 6);
+        let data = read_from_file("./src/day_02/input.txt");
+        let result = data
+            .iter()
+            .filter(|nums| {
+                (is_increasing(nums.to_vec()) || is_decreasing(nums.to_vec()))
+                    && is_within_diff_range(nums.to_vec())
+            })
+            .count();
+
+        println!("part one: {}", result);
     }
 
     pub fn solve() {
