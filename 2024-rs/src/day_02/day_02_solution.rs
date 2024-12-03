@@ -20,31 +20,18 @@ pub mod solution {
     }
 
     fn is_increasing(nums: &[i32]) -> bool {
-        for i in 1..nums.len() {
-            if nums[i - 1] >= nums[i] {
-                return false;
-            }
-        }
-        true
+        nums.windows(2).all(|window| window[0] < window[1])
     }
 
     fn is_decreasing(nums: &[i32]) -> bool {
-        for i in 1..nums.len() {
-            if nums[i - 1] <= nums[i] {
-                return false;
-            }
-        }
-        true
+        nums.windows(2).all(|window| window[0] > window[1])
     }
 
     fn is_within_diff_range(nums: &[i32]) -> bool {
-        for i in 1..nums.len() {
-            let diff = (nums[i] - nums[i - 1]).abs();
-            if diff < 1 || diff > 3 {
-                return false;
-            }
-        }
-        true
+        nums.windows(2).all(|window| {
+            let diff = (window[0] - window[1]).abs();
+            (1..=3).contains(&diff)
+        })
     }
 
     fn part_one() {
@@ -61,14 +48,11 @@ pub mod solution {
     }
 
     fn is_tolerable_ok(nums: &[i32]) -> bool {
-        for i in 0..nums.len() {
+        nums.iter().enumerate().any(|(i, _)| {
             let mut copy = nums.to_vec();
             copy.remove(i);
-            if (is_increasing(&copy) || is_decreasing(&copy)) && is_within_diff_range(&copy) {
-                return true;
-            }
-        }
-        false
+            (is_increasing(&copy) || is_decreasing(&copy)) && is_within_diff_range(&copy)
+        })
     }
 
     fn part_two() {
