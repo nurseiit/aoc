@@ -1,42 +1,39 @@
 pub mod solution {
-    use std::{
-        fs::File,
-        io::{BufRead, BufReader},
-    };
-
+    use anyhow::{Context, Error};
     use regex::Regex;
+    use std::fs::read_to_string;
 
-    fn read_file(file_path: &str) -> String {
-        let file = File::open(file_path).expect("could not read file");
-        let reader = BufReader::new(file);
+    fn part_one() -> Result<(), Error> {
+        let data = read_to_string("./src/day_03/input.txt")?;
+        let re = Regex::new(r"mul\((?<left>\d+)\,(?<right>\d+)\)")?;
 
-        reader
-            .lines()
-            .map(|line| line.expect("could not read line"))
-            .collect::<Vec<String>>()
-            .join("\n")
-    }
-
-    fn part_one() {
-        let data = read_file("./src/day_03/input.txt");
-        let re = Regex::new(r"mul\((?<left>\d+)\,(?<right>\d+)\)").unwrap();
-
-        let result = re
+        let result: i32 = re
             .captures_iter(data.as_str())
             .map(|capture| {
-                let left: &str = capture.name("left").expect("left not found").into();
-                let right: &str = capture.name("right").expect("right not found").into();
-                (left, right)
+                let left: i32 = capture
+                    .name("left")
+                    .context("left not found")?
+                    .as_str()
+                    .parse()?;
+                let right: i32 = capture
+                    .name("right")
+                    .context("right not found")?
+                    .as_str()
+                    .parse()?;
+                Ok(left * right)
             })
-            .map(|(left, right)| (left.parse::<i32>().unwrap(), right.parse::<i32>().unwrap()))
-            .fold(0, |acc, (left, right)| acc + left * right);
+            .collect::<Result<Vec<i32>, Error>>()?
+            .into_iter()
+            .sum();
 
         println!("part one result {}", result);
+
+        Ok(())
     }
 
-    fn part_two() {
-        let data = read_file("./src/day_03/input.txt");
-        let re = Regex::new(r"mul\((?<left>\d+)\,(?<right>\d+)\)|do\(\)|don\'t\(\)").unwrap();
+    fn part_two() -> Result<(), Error> {
+        let data = read_to_string("./src/day_03/input.txt")?;
+        let re = Regex::new(r"mul\((?<left>\d+)\,(?<right>\d+)\)|do\(\)|don\'t\(\)")?;
 
         let mut is_doing = true;
         let mut result = 0;
@@ -74,9 +71,12 @@ pub mod solution {
         });
 
         println!("part two result {}", result);
+
+        Ok(())
     }
 
     pub fn solve() {
-        part_two();
+        let _ = part_one();
+        let _ = part_two();
     }
 }
