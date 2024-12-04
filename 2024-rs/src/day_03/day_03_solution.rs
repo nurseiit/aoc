@@ -39,35 +39,36 @@ pub mod solution {
         let mut result = 0;
 
         re.captures_iter(data.as_str()).for_each(|capture| {
-            let slice = &capture[0];
+            let slice = capture.get(0).unwrap().as_str();
 
-            if slice.starts_with("don't") {
-                is_doing = false;
-                return;
+            match slice {
+                "don't()" => {
+                    is_doing = false;
+                    return;
+                }
+                "do()" => {
+                    is_doing = true;
+                    return;
+                }
+                _ if !is_doing => {
+                    return;
+                }
+                _ => {
+                    let left: i32 = capture
+                        .name("left")
+                        .expect("left not found")
+                        .as_str()
+                        .parse::<i32>()
+                        .unwrap();
+                    let right: i32 = capture
+                        .name("right")
+                        .expect("right not found")
+                        .as_str()
+                        .parse::<i32>()
+                        .unwrap();
+                    result += left * right;
+                }
             }
-
-            if slice.starts_with("do") {
-                is_doing = true;
-                return;
-            }
-
-            if !is_doing {
-                return;
-            }
-
-            let left: i32 = capture
-                .name("left")
-                .expect("left not found")
-                .as_str()
-                .parse::<i32>()
-                .unwrap();
-            let right: i32 = capture
-                .name("right")
-                .expect("right not found")
-                .as_str()
-                .parse::<i32>()
-                .unwrap();
-            result += left * right;
         });
 
         println!("part two result {}", result);
