@@ -34,7 +34,49 @@ pub mod solution {
         println!("part one result {}", result);
     }
 
+    fn part_two() {
+        let data = read_file("./src/day_03/input.txt");
+        let re = Regex::new(r"mul\((?<left>\d+)\,(?<right>\d+)\)|do\(\)|don\'t\(\)").unwrap();
+
+        let mut is_doing = true;
+        let mut result = 0;
+
+        re.captures_iter(data.as_str()).for_each(|capture| {
+            let slice = &capture[0];
+
+            if slice.starts_with("don't") {
+                is_doing = false;
+                return;
+            }
+
+            if slice.starts_with("do") {
+                is_doing = true;
+                return;
+            }
+
+            if !is_doing {
+                return;
+            }
+
+            let left: i32 = capture
+                .name("left")
+                .expect("left not found")
+                .as_str()
+                .parse::<i32>()
+                .unwrap();
+            let right: i32 = capture
+                .name("right")
+                .expect("right not found")
+                .as_str()
+                .parse::<i32>()
+                .unwrap();
+            result += left * right;
+        });
+
+        println!("part two result {}", result);
+    }
+
     pub fn solve() {
-        part_one();
+        part_two();
     }
 }
