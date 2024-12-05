@@ -83,6 +83,51 @@ fn part_one() -> Result<(), Error> {
     Ok(())
 }
 
+fn part_two() -> Result<(), Error> {
+    let board = read_board("./src/day_04/input.txt")?;
+
+    let masks: Vec<Vec<Vec<char>>> = vec![
+        "M.M\n.A.\nS.S",
+        "M.S\n.A.\nM.S",
+        "S.M\n.A.\nS.M",
+        "S.S\n.A.\nM.M",
+    ]
+    .iter()
+    .map(|mask| mask.lines().map(|line| line.chars().collect()).collect())
+    .collect();
+
+    let n = board.len();
+    let m = board[0].len();
+
+    let mut result = 0;
+
+    for i in 0..n {
+        for j in 0..m {
+            if i + 2 >= n || j + 2 >= m {
+                continue;
+            }
+            let does_mach = masks.iter().any(|mask| {
+                mask.iter().enumerate().all(|(mi, rows)| {
+                    rows.iter().enumerate().all(|(mj, col)| {
+                        if *col == '.' {
+                            return true;
+                        }
+                        return *col == board[i + mi][j + mj];
+                    })
+                })
+            });
+
+            if does_mach {
+                result += 1;
+            }
+        }
+    }
+
+    println!("part two result {}", result);
+
+    Ok(())
+}
+
 pub fn solve() -> Result<(), Error> {
-    part_one()
+    part_two()
 }
