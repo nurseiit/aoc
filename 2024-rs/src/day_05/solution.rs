@@ -93,6 +93,91 @@ fn part_one() -> Result<(), Error> {
     Ok(())
 }
 
+fn part_two() -> Result<(), Error> {
+    let data = read_data_from_file("./src/day_05/input.txt")?;
+
+    let mut graph: HashMap<i32, HashSet<i32>> = HashMap::new();
+
+    data.rules.iter().for_each(|&(from, to)| {
+        graph.entry(from).or_insert(HashSet::new()).insert(to);
+    });
+
+    let incorrect_ones: Vec<Vec<i32>> = data
+        .updates
+        .into_iter()
+        .filter(|update| {
+            let mut was: HashSet<i32> = HashSet::new();
+
+            let allowlist: HashSet<i32> = HashSet::from_iter(update.iter().cloned());
+
+            update.iter().rev().any(|&current| {
+                if was.contains(&current) {
+                    return true;
+                }
+                let mut queue: VecDeque<i32> = VecDeque::new();
+                queue.push_back(current);
+
+                while let Some(from) = queue.pop_front() {
+                    was.insert(from);
+                    graph
+                        .entry(from)
+                        .or_insert(HashSet::new())
+                        .iter()
+                        .filter(|to| !was.contains(*to) && allowlist.contains(*to))
+                        .for_each(|to| queue.push_back(*to));
+                }
+                return false;
+            })
+        })
+        .collect();
+
+    let corrected: Vec<Vec<i32>> = incorrect_ones
+        .into_iter()
+        .map(|update| {
+            fn dfs(
+                from: i32,
+                graph: &HashMap<i32, HashSet<i32>>,
+                allowlist: &HashSet<i32>,
+                was: &mut HashSet<i32>,
+                top_sorted: &mut Vec<i32>,
+            ) {
+                was.insert(from);
+                if let Some(neighbours) = graph.get(&from) {
+                    neighbours.iter().for_each(|to| {
+                        if was.contains(to) || !allowlist.contains(to) {
+                            return;
+                        }
+                        dfs(*to, graph, allowlist, was, top_sorted);
+                    });
+                }
+                top_sorted.push(from);
+            }
+
+            let allowlist: HashSet<i32> = HashSet::from_iter(update.iter().cloned());
+            let mut was: HashSet<i32> = HashSet::new();
+            let mut top_sorted: Vec<i32> = vec![];
+
+            update.iter().for_each(|num| {
+                if was.contains(num) {
+                    return;
+                }
+                dfs(*num, &graph, &allowlist, &mut was, &mut top_sorted);
+            });
+
+            return top_sorted.into_iter().rev().collect();
+        })
+        .collect();
+
+    let result: i32 = corrected
+        .iter()
+        .map(|update| update[update.len() / 2])
+        .sum();
+
+    println!("part two result {}", result);
+
+    Ok(())
+}
+
 pub fn solve() -> Result<(), Error> {
-    part_one()
+    part_two()
 }
