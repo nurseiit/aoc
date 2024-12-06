@@ -129,5 +129,7 @@ fn part_two() -> Result<(), Error> {
 }
 
 pub fn solve() -> Result<(), Error> {
-    part_two()
+    let _ = part_one();
+    let _ = part_two();
+    Ok(())
 }
