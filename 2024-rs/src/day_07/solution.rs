@@ -58,6 +58,63 @@ fn check_if_equation_is_true(equation: Equation) -> bool {
     })
 }
 
+fn combine(mut a: i64, b: i64) -> i64 {
+    let mut temp = b;
+    loop {
+        a *= 10;
+        temp /= 10;
+        if temp == 0 {
+            break;
+        }
+    }
+    a + b
+}
+
+fn check_if_equation_is_true_with_combine(equation: Equation) -> bool {
+    let num_of_operators = 2 * (equation.operands.len() - 1);
+    let mask_end = 1 << num_of_operators;
+
+    enum Op {
+        Add,
+        Combine,
+        Mult,
+    }
+
+    fn get_mask_op(mask: i32, index: usize) -> Op {
+        let double = index * 2;
+        let first_bit = mask & (1 << double) != 0;
+        let second_bit = mask & (1 << (double + 1)) != 0;
+
+        if !first_bit && !second_bit {
+            return Op::Add;
+        }
+        if !first_bit && second_bit {
+            return Op::Mult;
+        }
+        Op::Combine
+    }
+
+    (0..mask_end).any(|mask| {
+        equation.result
+            == equation
+                .operands
+                .iter()
+                .enumerate()
+                .fold(0i64, |acc, (i, num)| {
+                    let op = if i == 0 {
+                        Op::Add
+                    } else {
+                        get_mask_op(mask, i - 1)
+                    };
+                    match op {
+                        Op::Add => acc + num,
+                        Op::Mult => acc * num,
+                        Op::Combine => combine(acc, *num),
+                    }
+                })
+    })
+}
+
 fn part_one() -> Result<(), Error> {
     let equations = read_equations_from_file("./src/day_07/input.txt")?;
 
@@ -72,6 +129,20 @@ fn part_one() -> Result<(), Error> {
     Ok(())
 }
 
+fn part_two() -> Result<(), Error> {
+    let equations = read_equations_from_file("./src/day_07/input.txt")?;
+
+    let result: i64 = equations
+        .into_iter()
+        .filter(|eq| check_if_equation_is_true_with_combine(eq.clone()))
+        .map(|eq| eq.result)
+        .sum();
+
+    println!("part two result {}", result);
+
+    Ok(())
+}
+
 pub fn solve() -> Result<(), Error> {
-    part_one()
+    part_two()
 }
