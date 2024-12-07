@@ -3,6 +3,9 @@ name = "aoc-2024-rs"
 version = "0.1.0"
 edition = "2021"
 
+[lints.rust]
+dead_code = "allow"
+
 [dependencies]
 anyhow = "1.0.94"
 regex = "1.11.1"
