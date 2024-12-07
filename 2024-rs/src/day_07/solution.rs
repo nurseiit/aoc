@@ -1,8 +1,7 @@
+use anyhow::{Context, Error, Result};
 use std::fs::read_to_string;
 
-use anyhow::{Context, Error, Result};
-
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct Equation {
     result: i64,
     operands: Vec<i64>,
@@ -10,7 +9,7 @@ struct Equation {
 
 fn read_equations_from_file(file_path: &str) -> Result<Vec<Equation>, Error> {
     let input = read_to_string(file_path).context("could not read file")?;
-    let equations: Result<Vec<Equation>, _> = input
+    let equations: Result<_> = input
         .lines()
         .map(|line| {
             let parts: Vec<&str> = line.split(": ").collect();
@@ -19,7 +18,7 @@ fn read_equations_from_file(file_path: &str) -> Result<Vec<Equation>, Error> {
                 .context("could not get result part")?
                 .parse::<i64>()
                 .context("could not convert result part to i64")?;
-            let operands: Result<Vec<i64>, _> = parts
+            let operands: Result<_> = parts
                 .get(1)
                 .context("could not get operands part")?
                 .split(" ")
@@ -29,7 +28,7 @@ fn read_equations_from_file(file_path: &str) -> Result<Vec<Equation>, Error> {
                         .context("could not convert operand to i64")
                 })
                 .collect();
-            Ok::<Equation, Error>(Equation {
+            Ok(Equation {
                 result,
                 operands: operands?,
             })
@@ -39,7 +38,7 @@ fn read_equations_from_file(file_path: &str) -> Result<Vec<Equation>, Error> {
     Ok(equations?)
 }
 
-fn check_if_equation_is_true(equation: Equation) -> bool {
+fn check_if_equation_is_true(equation: &Equation) -> bool {
     let num_of_operators = equation.operands.len() - 1;
     let mask_end = 1 << num_of_operators;
     (0..mask_end).any(|mask| {
@@ -58,19 +57,7 @@ fn check_if_equation_is_true(equation: Equation) -> bool {
     })
 }
 
-fn combine(mut a: i64, b: i64) -> i64 {
-    let mut temp = b;
-    loop {
-        a *= 10;
-        temp /= 10;
-        if temp == 0 {
-            break;
-        }
-    }
-    a + b
-}
-
-fn check_if_equation_is_true_with_combine(equation: Equation) -> bool {
+fn check_if_equation_is_true_with_combine(equation: &Equation) -> bool {
     let num_of_operators = 2 * (equation.operands.len() - 1);
     let mask_end = 1 << num_of_operators;
 
@@ -92,6 +79,18 @@ fn check_if_equation_is_true_with_combine(equation: Equation) -> bool {
             return Op::Mult;
         }
         Op::Combine
+    }
+
+    fn combine(mut a: i64, b: i64) -> i64 {
+        let mut temp = b;
+        loop {
+            a *= 10;
+            temp /= 10;
+            if temp == 0 {
+                break;
+            }
+        }
+        a + b
     }
 
     (0..mask_end).any(|mask| {
@@ -120,7 +119,7 @@ fn part_one() -> Result<(), Error> {
 
     let result: i64 = equations
         .into_iter()
-        .filter(|eq| check_if_equation_is_true(eq.clone()))
+        .filter(check_if_equation_is_true)
         .map(|eq| eq.result)
         .sum();
 
@@ -134,7 +133,7 @@ fn part_two() -> Result<(), Error> {
 
     let result: i64 = equations
         .into_iter()
-        .filter(|eq| check_if_equation_is_true_with_combine(eq.clone()))
+        .filter(check_if_equation_is_true_with_combine)
         .map(|eq| eq.result)
         .sum();
 
