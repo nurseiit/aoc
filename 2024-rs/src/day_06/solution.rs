@@ -198,7 +198,7 @@ fn part_two() -> Result<(), Error> {
 
     let indexes = get_original_footprint_indexes(room.clone(), position, n, m)?;
 
-    for (id, (i, j)) in indexes.into_iter().enumerate() {
+    for (i, j) in indexes {
         let cell = room[i][j];
         if is_guard(cell) || is_obstacle(cell) {
             continue;
