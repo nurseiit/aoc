@@ -56,6 +56,69 @@ fn part_one() -> Result<()> {
     Ok(())
 }
 
+fn part_two() -> Result<()> {
+    let mut blocks = get_disk_blocks()?;
+
+    let mut id = *blocks
+        .iter()
+        .max()
+        .context("could not get the max element")?;
+
+    while id > 0 {
+        let count_current_id = blocks.iter().filter(|&block| *block == id).count() as i32;
+        let mut cur_group_size: i32 = 1;
+        let mut position: i32 = -1;
+
+        for i in 1..blocks.len() {
+            if blocks[i - 1] == blocks[i] {
+                cur_group_size += 1;
+                continue;
+            }
+            if cur_group_size >= count_current_id && blocks[i - 1] == -1 {
+                position = i as i32 - cur_group_size;
+                break;
+            }
+            cur_group_size = 1;
+        }
+
+        if position == -1 && cur_group_size >= count_current_id && blocks[blocks.len() - 1] == -1 {
+            position = blocks.len() as i32 - cur_group_size;
+        }
+        if position == -1 {
+            id -= 1;
+            continue;
+        }
+
+        if let Some((first, _)) = blocks.iter().enumerate().find(|&(_, &block)| block == id) {
+            if first < position as usize {
+                id -= 1;
+                continue;
+            }
+            for i in 0..blocks.len() {
+                if blocks[i] == id {
+                    blocks[i] = -1;
+                }
+            }
+            for i in position..position + count_current_id {
+                blocks[i as usize] = id;
+            }
+        }
+
+        id -= 1;
+    }
+
+    let result: i64 = blocks
+        .iter()
+        .enumerate()
+        .map(|(i, &val)| i as i64 * val as i64)
+        .filter(|&val| val > 0)
+        .sum();
+
+    println!("part two result {}", result);
+
+    Ok(())
+}
+
 pub fn solve() -> Result<()> {
-    part_one()
+    part_two()
 }
