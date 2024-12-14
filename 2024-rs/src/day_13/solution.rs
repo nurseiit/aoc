@@ -10,7 +10,7 @@ struct Game {
 }
 
 fn read_games_input() -> Result<Vec<Game>> {
-    let input = read_to_string("./src/day_13/example.txt").context("could not read file")?;
+    let input = read_to_string("./src/day_13/input.txt").context("could not read file")?;
 
     let button_re = Regex::new(r"Button (A|B)\: X\+(?<x>\d+)\, Y\+(?<y>\d+)")?;
     let prize_re = Regex::new(r"Prize\: X\=(?<x>\d+)\, Y\=(?<y>\d+)")?;
@@ -91,184 +91,47 @@ fn part_one() -> Result<()> {
     Ok(())
 }
 
-fn gcd_ext(a: i64, b: i64, x: &mut i64, y: &mut i64) -> i64 {
-    if b == 0 {
-        *x = 1;
-        *y = 0;
-        a
-    } else {
-        let mut x1 = 0;
-        let mut y1 = 0;
-        let g = gcd_ext(b, a % b, &mut x1, &mut y1);
-        *x = y1;
-        *y = x1 - y1 * (a / b);
-        g
-    }
-}
-
-fn solve_game(game: &Game) -> i64 {
+fn solve_game_for_part_two(game: &Game) -> i64 {
     let diff: i64 = 10000000000000;
-    // let diff: i64 = 0;
     let prize = (game.prize.0 + diff, game.prize.1 + diff);
     let button_a = game.buttons[0];
     let button_b = game.buttons[1];
 
-    let aa = button_a.0;
-    let ab = button_b.0;
+    let upper_l = button_a.0 * prize.1 - button_a.1 * prize.0;
+    let lower_l = button_a.0 * button_b.1 - button_a.1 * button_b.0;
 
-    let ba = button_a.1;
-    let bb = button_b.1;
-
-    let mut ax = 0;
-    let mut ay = 0;
-
-    let mut bx = 0;
-    let mut by = 0;
-
-    let ga = gcd_ext(aa, ab, &mut ax, &mut ay);
-    let gb = gcd_ext(ba, bb, &mut bx, &mut by);
-
-    if prize.0 % ga != 0 || prize.1 % gb != 0 {
+    if upper_l % lower_l != 0 {
         return 0;
     }
 
-    let da = prize.0 / ga;
-    let db = prize.1 / gb;
+    let l = upper_l / lower_l;
 
-    ax *= da;
-    ay *= da;
+    let upper_k = prize.0 - button_b.0 * l;
+    let lower_k = button_a.0;
 
-    bx *= db;
-    by *= db;
-
-    let ax_step = ab / ga;
-    let ay_step = aa / ga;
-
-    let bx_step = bb / gb;
-    let by_step = ba / gb;
-
-    // let a_mid_k = -ax / ax_step;
-    // let b_mid_k = -bx / bx_step;
-    let a_mid_k = 0;
-    let b_mid_k = 0;
-
-    // println!(
-    //     "Solved: {} = {} * {} + {} * {}",
-    //     prize.0,
-    //     aa,
-    //     ax + a_mid_k * ax_step,
-    //     ab,
-    //     ay - a_mid_k * ay_step
-    // );
-    //
-    // println!(
-    //     "Solved: {} = {} * {} + {} * {}\n",
-    //     prize.1,
-    //     ba,
-    //     bx + b_mid_k * bx_step,
-    //     bb,
-    //     by - b_mid_k * by_step
-    // );
-
-    let mut min_score: Option<i64> = None;
-
-    let mut k = 1;
-    let mut op = 0;
-    let max_ops = 2;
-    while op < max_ops {
-        let aa_count = ax + (a_mid_k + k) * ax_step;
-        let ab_count = ay - (a_mid_k + k) * ay_step;
-
-        let x = button_a.0 * aa_count + button_b.0 * ab_count;
-        let y = button_a.1 * aa_count + button_b.1 * ab_count;
-
-        println!("checking a count {} & b count {}", aa_count, ab_count);
-        println!(
-            "(exp {}) {} = {} * {} + {} * {} AND (exp {}) {} = {} * {} + {} * {}",
-            prize.0,
-            x,
-            button_a.0,
-            aa_count,
-            button_b.0,
-            ab_count,
-            prize.1,
-            y,
-            button_a.1,
-            aa_count,
-            button_b.1,
-            ab_count
-        );
-
-        if prize == (x, y) && aa_count >= 0 && ab_count >= 0 {
-            let current_score = aa_count * 3 + ab_count;
-            if min_score.is_none() {
-                min_score = Some(current_score);
-            } else {
-                min_score = min_score.min(Some(current_score));
-            }
-        }
-        op += 1;
-        if aa > ab {
-            k -= 1;
-        } else {
-            k += 1;
-        }
+    if upper_k % lower_k != 0 {
+        return 0;
     }
 
-    println!("contd");
+    let k = upper_k / lower_k;
 
-    k = 1;
-    op = 0;
-    while op < max_ops {
-        let ba_count = bx + (b_mid_k + k) * bx_step;
-        let bb_count = by - (b_mid_k + k) * by_step;
+    let x = button_a.0 * k + button_b.0 * l;
+    let y = button_a.1 * k + button_b.1 * l;
 
-        println!("checking a count {} & b count {}", ba_count, bb_count);
-
-        let x = button_a.0 * ba_count + button_b.0 * bb_count;
-        let y = button_a.1 * ba_count + button_b.1 * bb_count;
-
-        println!(
-            "(exp {}) {} = {} * {} + {} * {} AND (exp {}) {} = {} * {} + {} * {}",
-            prize.0,
-            x,
-            button_a.0,
-            ba_count,
-            button_b.0,
-            bb_count,
-            prize.1,
-            y,
-            button_a.1,
-            ba_count,
-            button_b.1,
-            bb_count
-        );
-
-        if prize == (x, y) && ba_count >= 0 && bb_count >= 0 {
-            let current_score = ba_count * 3 + bb_count;
-            if min_score.is_none() {
-                min_score = Some(current_score);
-            } else {
-                min_score = min_score.min(Some(current_score));
-            }
-        }
-        op += 1;
-        if ba > bb {
-            k -= 1;
-        } else {
-            k += 1;
-        }
+    if prize != (x, y) {
+        return 0;
     }
 
-    println!("====");
-
-    min_score.unwrap_or(0)
+    return 3 * k + l;
 }
 
 fn part_two() -> Result<()> {
     let games = read_games_input()?;
 
-    let result: i64 = games.into_iter().map(|game| solve_game(&game)).sum();
+    let result: i64 = games
+        .into_iter()
+        .map(|game| solve_game_for_part_two(&game))
+        .sum();
 
     println!("part two result {}", result);
 
