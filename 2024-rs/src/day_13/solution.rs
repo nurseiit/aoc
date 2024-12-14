@@ -108,6 +108,7 @@ fn gcd_ext(a: i64, b: i64, x: &mut i64, y: &mut i64) -> i64 {
 
 fn solve_game(game: &Game) -> i64 {
     let diff: i64 = 10000000000000;
+    // let diff: i64 = 0;
     let prize = (game.prize.0 + diff, game.prize.1 + diff);
     let button_a = game.buttons[0];
     let button_b = game.buttons[1];
@@ -140,33 +141,126 @@ fn solve_game(game: &Game) -> i64 {
     bx *= db;
     by *= db;
 
-    let axd = ab / ga;
-    let ayd = aa / ga;
+    let ax_step = ab / ga;
+    let ay_step = aa / ga;
 
-    let mid_k = -ax / axd;
-    let from = mid_k - 1000;
-    let to = mid_k + 1000;
+    let bx_step = bb / gb;
+    let by_step = ba / gb;
+
+    // let a_mid_k = -ax / ax_step;
+    // let b_mid_k = -bx / bx_step;
+    let a_mid_k = 0;
+    let b_mid_k = 0;
+
+    // println!(
+    //     "Solved: {} = {} * {} + {} * {}",
+    //     prize.0,
+    //     aa,
+    //     ax + a_mid_k * ax_step,
+    //     ab,
+    //     ay - a_mid_k * ay_step
+    // );
+    //
+    // println!(
+    //     "Solved: {} = {} * {} + {} * {}\n",
+    //     prize.1,
+    //     ba,
+    //     bx + b_mid_k * bx_step,
+    //     bb,
+    //     by - b_mid_k * by_step
+    // );
 
     let mut min_score: Option<i64> = None;
 
-    for k in from..to {
-        let a_count = ax + k * axd;
-        let b_count = ay - k * ayd;
+    let mut k = 1;
+    let mut op = 0;
+    let max_ops = 2;
+    while op < max_ops {
+        let aa_count = ax + (a_mid_k + k) * ax_step;
+        let ab_count = ay - (a_mid_k + k) * ay_step;
 
-        let x = button_a.0 * a_count + button_b.0 * b_count;
-        let y = button_a.1 * a_count + button_b.1 * b_count;
+        let x = button_a.0 * aa_count + button_b.0 * ab_count;
+        let y = button_a.1 * aa_count + button_b.1 * ab_count;
 
-        if prize != (x, y) {
-            continue;
+        println!("checking a count {} & b count {}", aa_count, ab_count);
+        println!(
+            "(exp {}) {} = {} * {} + {} * {} AND (exp {}) {} = {} * {} + {} * {}",
+            prize.0,
+            x,
+            button_a.0,
+            aa_count,
+            button_b.0,
+            ab_count,
+            prize.1,
+            y,
+            button_a.1,
+            aa_count,
+            button_b.1,
+            ab_count
+        );
+
+        if prize == (x, y) && aa_count >= 0 && ab_count >= 0 {
+            let current_score = aa_count * 3 + ab_count;
+            if min_score.is_none() {
+                min_score = Some(current_score);
+            } else {
+                min_score = min_score.min(Some(current_score));
+            }
         }
-
-        let current_score = a_count * 3 + b_count;
-        if min_score.is_none() {
-            min_score = Some(current_score);
+        op += 1;
+        if aa > ab {
+            k -= 1;
         } else {
-            min_score = min_score.min(Some(current_score));
+            k += 1;
         }
     }
+
+    println!("contd");
+
+    k = 1;
+    op = 0;
+    while op < max_ops {
+        let ba_count = bx + (b_mid_k + k) * bx_step;
+        let bb_count = by - (b_mid_k + k) * by_step;
+
+        println!("checking a count {} & b count {}", ba_count, bb_count);
+
+        let x = button_a.0 * ba_count + button_b.0 * bb_count;
+        let y = button_a.1 * ba_count + button_b.1 * bb_count;
+
+        println!(
+            "(exp {}) {} = {} * {} + {} * {} AND (exp {}) {} = {} * {} + {} * {}",
+            prize.0,
+            x,
+            button_a.0,
+            ba_count,
+            button_b.0,
+            bb_count,
+            prize.1,
+            y,
+            button_a.1,
+            ba_count,
+            button_b.1,
+            bb_count
+        );
+
+        if prize == (x, y) && ba_count >= 0 && bb_count >= 0 {
+            let current_score = ba_count * 3 + bb_count;
+            if min_score.is_none() {
+                min_score = Some(current_score);
+            } else {
+                min_score = min_score.min(Some(current_score));
+            }
+        }
+        op += 1;
+        if ba > bb {
+            k -= 1;
+        } else {
+            k += 1;
+        }
+    }
+
+    println!("====");
 
     min_score.unwrap_or(0)
 }
