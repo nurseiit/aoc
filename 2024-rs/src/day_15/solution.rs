@@ -1,15 +1,20 @@
 use anyhow::{Context, Error, Ok, Result};
-use std::fs::read_to_string;
+use std::{
+    collections::{HashSet, VecDeque},
+    fs::read_to_string,
+};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 enum TableItem {
     WALL,
     ROBOT,
     BOX,
+    BoxLeft,
+    BoxRight,
     EMPTY,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 enum Direction {
     UP,
     DOWN,
@@ -82,49 +87,48 @@ fn get_robot_position(table: &Vec<Vec<TableItem>>) -> (usize, usize) {
     (0, 0)
 }
 
-fn move_in_direction(direction: &Direction, table: &mut Vec<Vec<TableItem>>) {
-    let (dx, dy) = match *direction {
-        Direction::UP => (-1, 0),
-        Direction::DOWN => (1, 0),
-        Direction::LEFT => (0, -1),
-        Direction::RIGHT => (0, 1),
-    };
-    let (i, j) = get_robot_position(&table);
-    let (nx, ny) = (i as i32 + dx, j as i32 + dy);
+fn part_one() -> Result<()> {
+    fn move_in_direction(direction: &Direction, table: &mut Vec<Vec<TableItem>>) {
+        let (dx, dy) = match *direction {
+            Direction::UP => (-1, 0),
+            Direction::DOWN => (1, 0),
+            Direction::LEFT => (0, -1),
+            Direction::RIGHT => (0, 1),
+        };
+        let (i, j) = get_robot_position(&table);
+        let (nx, ny) = (i as i32 + dx, j as i32 + dy);
 
-    let n = table.len() as i32;
-    let m = table[0].len() as i32;
+        let n = table.len() as i32;
+        let m = table[0].len() as i32;
 
-    if nx < 0 || nx >= n || ny < 0 || ny >= m {
-        return;
-    }
-
-    let (ni, nj) = (nx as usize, ny as usize);
-
-    match table[ni][nj] {
-        TableItem::EMPTY => {
-            table[i][j] = TableItem::EMPTY;
-            table[ni][nj] = TableItem::ROBOT;
+        if nx < 0 || nx >= n || ny < 0 || ny >= m {
+            return;
         }
-        TableItem::WALL => (),
-        TableItem::BOX => {
-            let mut ci = ni;
-            let mut cj = nj;
-            while table[ci][cj] != TableItem::WALL && table[ci][cj] != TableItem::EMPTY {
-                ci = (ci as i32 + dx) as usize;
-                cj = (cj as i32 + dy) as usize;
-            }
-            if table[ci][cj] == TableItem::EMPTY {
+
+        let (ni, nj) = (nx as usize, ny as usize);
+
+        match table[ni][nj] {
+            TableItem::EMPTY => {
                 table[i][j] = TableItem::EMPTY;
                 table[ni][nj] = TableItem::ROBOT;
-                table[ci][cj] = TableItem::BOX;
             }
+            TableItem::BOX => {
+                let mut ci = ni;
+                let mut cj = nj;
+                while table[ci][cj] != TableItem::WALL && table[ci][cj] != TableItem::EMPTY {
+                    ci = (ci as i32 + dx) as usize;
+                    cj = (cj as i32 + dy) as usize;
+                }
+                if table[ci][cj] == TableItem::EMPTY {
+                    table[i][j] = TableItem::EMPTY;
+                    table[ni][nj] = TableItem::ROBOT;
+                    table[ci][cj] = TableItem::BOX;
+                }
+            }
+            TableItem::ROBOT => panic!("found multiple robots!"),
+            _ => (),
         }
-        TableItem::ROBOT => panic!("found multiple robots!"),
     }
-}
-
-fn part_one() -> Result<()> {
     let doc = read_document("input")?;
 
     let mut table = doc.table;
@@ -150,6 +154,186 @@ fn part_one() -> Result<()> {
     Ok(())
 }
 
+fn show_table(table: &Vec<Vec<TableItem>>) {
+    for row in table {
+        for cell in row {
+            print!(
+                "{}",
+                match *cell {
+                    TableItem::WALL => "#",
+                    TableItem::ROBOT => "@",
+                    TableItem::BOX => "O",
+                    TableItem::BoxLeft => "[",
+                    TableItem::BoxRight => "]",
+                    TableItem::EMPTY => ".",
+                }
+            );
+        }
+        println!("");
+    }
+}
+
+fn part_two() -> Result<()> {
+    fn get_wide_table(table: &Vec<Vec<TableItem>>) -> Vec<Vec<TableItem>> {
+        table
+            .into_iter()
+            .map(|row| {
+                row.into_iter()
+                    .flat_map(|cell| match *cell {
+                        TableItem::WALL => vec![TableItem::WALL, TableItem::WALL],
+                        TableItem::ROBOT => vec![TableItem::ROBOT, TableItem::EMPTY],
+                        TableItem::BOX => vec![TableItem::BoxLeft, TableItem::BoxRight],
+                        TableItem::EMPTY => vec![TableItem::EMPTY, TableItem::EMPTY],
+                        _ => vec![],
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    fn move_in_direction(direction: &Direction, table: &mut Vec<Vec<TableItem>>) {
+        let (dx, dy) = match *direction {
+            Direction::UP => (-1, 0),
+            Direction::DOWN => (1, 0),
+            Direction::LEFT => (0, -1),
+            Direction::RIGHT => (0, 1),
+        };
+        let (i, j) = get_robot_position(&table);
+        let (nx, ny) = (i as i32 + dx, j as i32 + dy);
+
+        let n = table.len() as i32;
+        let m = table[0].len() as i32;
+
+        if nx < 0 || nx >= n || ny < 0 || ny >= m {
+            return;
+        }
+
+        let (ni, nj) = (nx as usize, ny as usize);
+
+        match table[ni][nj] {
+            TableItem::EMPTY => {
+                table[i][j] = TableItem::EMPTY;
+                table[ni][nj] = TableItem::ROBOT;
+            }
+            TableItem::BoxLeft | TableItem::BoxRight => {
+                let is_horizontal = vec![Direction::LEFT, Direction::RIGHT].contains(direction);
+
+                if is_horizontal {
+                    let mut cj = nj;
+                    let mut positions: Vec<usize> = vec![cj];
+                    while table[i][cj] != TableItem::WALL && table[i][cj] != TableItem::EMPTY {
+                        cj = (cj as i32 + dy) as usize;
+                        positions.push(cj);
+                    }
+                    if table[i][cj] == TableItem::WALL {
+                        return;
+                    }
+
+                    positions.windows(2).rev().for_each(|window| {
+                        table[i][window[1]] = table[i][window[0]].clone();
+                    });
+                    table[i][j] = TableItem::EMPTY;
+                    table[ni][nj] = TableItem::ROBOT;
+                    return;
+                }
+                // vertical
+                let mut queue: VecDeque<(usize, usize)> = VecDeque::new();
+                let mut was: HashSet<(usize, usize)> = HashSet::new();
+                queue.push_back((ni, j));
+
+                if table[ni][j] == TableItem::BoxLeft {
+                    queue.push_back((ni, j + 1));
+                } else if table[ni][j] == TableItem::BoxRight {
+                    queue.push_back((ni, j - 1));
+                }
+
+                while let Some(top) = queue.pop_front() {
+                    was.insert(top);
+                    let (top_i, top_j) = top;
+                    let ci = (top_i as i32 + dx) as usize;
+
+                    match table[ci][top_j] {
+                        TableItem::WALL | TableItem::EMPTY => {}
+                        TableItem::BoxLeft => {
+                            if !was.contains(&(ci, top_j + 1)) {
+                                was.insert((ci, top_j + 1));
+                                queue.push_back((ci, top_j + 1));
+                            }
+                            if !was.contains(&(ci, top_j)) {
+                                was.insert((ci, top_j));
+                                queue.push_back((ci, top_j));
+                            }
+                        }
+                        TableItem::BoxRight => {
+                            if !was.contains(&(ci, top_j - 1)) {
+                                was.insert((ci, top_j - 1));
+                                queue.push_back((ci, top_j - 1));
+                            }
+                            if !was.contains(&(ci, top_j)) {
+                                was.insert((ci, top_j));
+                                queue.push_back((ci, top_j));
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+
+                let can_move = was.iter().all(|&(ci, cj)| {
+                    let nci = ci as i32 + dx;
+                    nci >= 0 && nci < n && table[nci as usize][cj] != TableItem::WALL
+                });
+
+                if can_move {
+                    let table_before = table.clone();
+                    was.iter()
+                        .for_each(|&(ci, cj)| table[ci][cj] = TableItem::EMPTY);
+                    was.iter().for_each(|&(ci, cj)| {
+                        let nci = ci as i32 + dx;
+                        table[nci as usize][cj] = table_before[ci][cj].clone();
+                    });
+                    table[i][j] = TableItem::EMPTY;
+                    table[ni][nj] = TableItem::ROBOT;
+                }
+            }
+            _ => (),
+        }
+    }
+
+    let doc = read_document("input")?;
+
+    let mut table = get_wide_table(&doc.table);
+    let moves = doc.moves;
+
+    // println!("Initial:");
+    // show_table(&table);
+    // let mut line: String = Default::default();
+
+    for i in 0..moves.len() {
+        // let _ = std::io::stdin().read_line(&mut line);
+        move_in_direction(&moves[i], &mut table);
+        // println!("Move {}: {:?}", i, moves[i]);
+        // show_table(&table);
+    }
+
+    let mut result: i32 = 0;
+
+    for i in 0..table.len() {
+        for j in 0..table[i].len() {
+            if table[i][j] != TableItem::BoxLeft {
+                continue;
+            }
+            result += i as i32 * 100 + j as i32;
+        }
+    }
+
+    // println!("End:");
+    // show_table(&table);
+
+    println!("part two result {}", result);
+
+    Ok(())
+}
+
 pub fn solve() -> Result<()> {
-    part_one()
+    part_two()
 }
