@@ -1,5 +1,5 @@
 use std::{
-    collections::{BinaryHeap, HashMap},
+    collections::{BinaryHeap, HashMap, HashSet},
     fs::read_to_string,
     i32,
 };
@@ -12,6 +12,7 @@ enum MazeCell {
     Empty,
     EndPoint,
     StartPoint,
+    Path,
 }
 
 fn read_maze(file_name: &str) -> Result<Vec<Vec<MazeCell>>> {
@@ -42,11 +43,12 @@ enum Direction {
     West,
 }
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 struct StepState {
     position: (usize, usize),
     direction: Direction,
     cost: i32,
+    positions_set: HashSet<(usize, usize)>,
 }
 
 impl Ord for StepState {
@@ -61,7 +63,7 @@ impl PartialOrd for StepState {
     }
 }
 
-fn part_one() -> Result<()> {
+pub fn solve() -> Result<()> {
     let maze = read_maze("input")?;
 
     let n = maze.len();
@@ -85,21 +87,42 @@ fn part_one() -> Result<()> {
     let mut dist: HashMap<((usize, usize), Direction), i32> = HashMap::new();
     let mut heap: BinaryHeap<StepState> = BinaryHeap::new();
 
+    let mut all_positions: HashSet<(usize, usize)> = HashSet::new();
+
     dist.insert((start_point, start_direction), 0);
     heap.push(StepState {
         position: start_point,
         direction: start_direction,
         cost: 0,
+        positions_set: HashSet::from_iter(vec![start_point].into_iter()),
     });
 
     while let Some(StepState {
         position,
         direction,
         cost,
+        positions_set,
     }) = heap.pop()
     {
         if position == end_point {
-            break;
+            let all_directions = vec![
+                Direction::North,
+                Direction::South,
+                Direction::West,
+                Direction::East,
+            ];
+
+            let min = all_directions
+                .into_iter()
+                .map(|direction| dist.get(&(end_point, direction)).unwrap_or(&i32::MAX))
+                .min();
+
+            if cost == *min.unwrap_or(&i32::MAX) {
+                positions_set.into_iter().for_each(|item| {
+                    all_positions.insert(item);
+                });
+            }
+            continue;
         }
 
         if cost > *dist.get(&(position, direction)).unwrap_or(&i32::MAX) {
@@ -113,11 +136,12 @@ fn part_one() -> Result<()> {
         };
 
         rotate_directions.into_iter().for_each(|rotate_direction| {
-            if cost + 1000 < *dist.get(&(position, rotate_direction)).unwrap_or(&i32::MAX) {
+            if cost + 1000 <= *dist.get(&(position, rotate_direction)).unwrap_or(&i32::MAX) {
                 heap.push(StepState {
                     position,
                     direction: rotate_direction,
                     cost: cost + 1000,
+                    positions_set: positions_set.clone(),
                 });
                 dist.insert((position, rotate_direction), cost + 1000);
             }
@@ -135,18 +159,22 @@ fn part_one() -> Result<()> {
             continue;
         }
 
+        let mut next_positions_set = positions_set.clone();
+        next_positions_set.insert((ni, nj));
+
         let next_state = StepState {
             position: (ni, nj),
             direction,
             cost: cost + 1,
+            positions_set: next_positions_set,
         };
 
         if next_state.cost
-            < *dist
+            <= *dist
                 .get(&(next_state.position, direction))
                 .unwrap_or(&i32::MAX)
         {
-            heap.push(next_state);
+            heap.push(next_state.clone());
             dist.insert((next_state.position, direction), cost + 1);
         }
     }
@@ -169,9 +197,7 @@ fn part_one() -> Result<()> {
         println!("no path found to {:?}", end_point);
     }
 
-    Ok(())
-}
+    println!("part two result {}", all_positions.len());
 
-pub fn solve() -> Result<()> {
-    part_one()
+    Ok(())
 }
