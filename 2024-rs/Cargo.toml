@@ -6,6 +6,10 @@ edition = "2021"
 [lints.rust]
 dead_code = "allow"
 
+[profile.release]
+codegen-units = 1
+lto = "fat"
+
 [dependencies]
 anyhow = "1.0.94"
 regex = "1.11.1"

@@ -1,13 +1,14 @@
-use std::fs::read_to_string;
+use std::{fs::read_to_string, i64};
 
 use anyhow::{Context, Result};
 
 #[derive(Debug, Clone)]
 struct Computer {
-    registers: Vec<i32>,
-    program: Vec<i32>,
+    registers: Vec<i64>,
+    program: Vec<i64>,
     pointer: usize,
-    output: Vec<i32>,
+    output: Vec<i64>,
+    early_exit: bool,
 }
 
 impl Computer {
@@ -15,21 +16,13 @@ impl Computer {
         while self.run_instruction(false) {}
     }
 
-    pub fn run_part_two(&self, a_value: i32) -> bool {
+    pub fn run_part_two(&self, a_value: i64) -> bool {
         let mut computer = self.clone();
 
         computer.registers[0] = a_value;
         while computer.run_instruction(true) {}
 
-        if computer.output.len() != computer.program.len() {
-            return false;
-        }
-
-        computer
-            .output
-            .iter()
-            .zip(computer.program.iter())
-            .all(|(&output, &program)| output == program)
+        !computer.early_exit && computer.output.len() == computer.program.len()
     }
 
     fn run_instruction(&mut self, should_match_program: bool) -> bool {
@@ -41,7 +34,7 @@ impl Computer {
                 if self.pointer + 1 >= self.program.len() {
                     return false;
                 }
-                self.registers[0] = self.registers[0] / (1 << self.get_combo_operand());
+                self.registers[0] = self.registers[0] >> self.get_combo_operand();
                 self.pointer += 2;
                 true
             }
@@ -57,7 +50,7 @@ impl Computer {
                 if self.pointer + 1 >= self.program.len() {
                     return false;
                 }
-                self.registers[1] = self.get_combo_operand() % 8;
+                self.registers[1] = self.get_combo_operand() & 7;
                 self.pointer += 2;
                 true
             }
@@ -86,11 +79,12 @@ impl Computer {
                     return false;
                 }
                 let len = self.output.len();
-                self.output.push(self.get_combo_operand() % 8);
+                self.output.push(self.get_combo_operand() & 7);
                 // early exit for part two
                 if should_match_program
                     && (self.program.len() < len || self.program[len] != self.output[len])
                 {
+                    self.early_exit = true;
                     return false;
                 }
                 self.pointer += 2;
@@ -100,7 +94,7 @@ impl Computer {
                 if self.pointer + 1 >= self.program.len() {
                     return false;
                 }
-                self.registers[1] = self.registers[0] / (1 << self.get_combo_operand());
+                self.registers[1] = self.registers[0] >> self.get_combo_operand();
                 self.pointer += 2;
                 true
             }
@@ -108,7 +102,7 @@ impl Computer {
                 if self.pointer + 1 >= self.program.len() {
                     return false;
                 }
-                self.registers[2] = self.registers[0] / (1 << self.get_combo_operand());
+                self.registers[2] = self.registers[0] >> self.get_combo_operand();
                 self.pointer += 2;
                 true
             }
@@ -116,11 +110,11 @@ impl Computer {
         }
     }
 
-    fn get_opcode(&self) -> i32 {
+    fn get_opcode(&self) -> i64 {
         self.program[self.pointer]
     }
 
-    fn get_combo_operand(&self) -> i32 {
+    fn get_combo_operand(&self) -> i64 {
         let operand = self.program[self.pointer + 1];
         match operand {
             0..=3 => operand,
@@ -131,7 +125,7 @@ impl Computer {
         }
     }
 
-    fn get_literal_operand(&self) -> i32 {
+    fn get_literal_operand(&self) -> i64 {
         self.program[self.pointer + 1]
     }
 }
@@ -149,10 +143,10 @@ fn read_computer(file_name: &str) -> Result<Computer> {
             register_line
                 .get(12..)
                 .context("could not get register value")?
-                .parse::<i32>()
+                .parse::<i64>()
                 .context(format!("could not parse register value"))
         })
-        .collect::<Result<Vec<i32>>>()?;
+        .collect::<Result<Vec<i64>>>()?;
 
     let program = input_parts
         .get(1)
@@ -163,16 +157,17 @@ fn read_computer(file_name: &str) -> Result<Computer> {
         .split(",")
         .map(|value| {
             value
-                .parse::<i32>()
+                .parse::<i64>()
                 .context(format!("could not parse program value '{}'", value))
         })
-        .collect::<Result<Vec<i32>>>()?;
+        .collect::<Result<Vec<i64>>>()?;
 
     Ok(Computer {
         registers,
         program,
         pointer: 0,
         output: vec![],
+        early_exit: false,
     })
 }
 
@@ -191,8 +186,11 @@ pub fn solve() -> Result<()> {
 
     println!("part one result: {}", part_one);
 
-    if let Some(part_two) = (50000000..10000000000).find(|&a_value| {
-        if a_value % 1000 == 0 {
+    // let start: i64 = 0;
+    let start: i64 = 16982000000;
+
+    if let Some(part_two) = (start..i64::MAX).find(|&a_value| {
+        if a_value % 1000000 == 0 {
             println!("checking {}", a_value);
         }
         computer_two.run_part_two(a_value)
