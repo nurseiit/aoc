@@ -2,7 +2,7 @@ use std::fs::read_to_string;
 
 use anyhow::{Context, Result};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Computer {
     registers: Vec<i32>,
     program: Vec<i32>,
@@ -11,15 +11,28 @@ struct Computer {
 }
 
 impl Computer {
-    pub fn run(&mut self, debug: bool) {
-        while self.run_instruction() {
-            if debug {
-                println!("compukter: {:?}", *self);
-            }
-        }
+    pub fn run(&mut self) {
+        while self.run_instruction(false) {}
     }
 
-    fn run_instruction(&mut self) -> bool {
+    pub fn run_part_two(&self, a_value: i32) -> bool {
+        let mut computer = self.clone();
+
+        computer.registers[0] = a_value;
+        while computer.run_instruction(true) {}
+
+        if computer.output.len() != computer.program.len() {
+            return false;
+        }
+
+        computer
+            .output
+            .iter()
+            .zip(computer.program.iter())
+            .all(|(&output, &program)| output == program)
+    }
+
+    fn run_instruction(&mut self, should_match_program: bool) -> bool {
         if self.pointer >= self.program.len() {
             return false;
         }
@@ -72,7 +85,14 @@ impl Computer {
                 if self.pointer + 1 >= self.program.len() {
                     return false;
                 }
+                let len = self.output.len();
                 self.output.push(self.get_combo_operand() % 8);
+                // early exit for part two
+                if should_match_program
+                    && (self.program.len() < len || self.program[len] != self.output[len])
+                {
+                    return false;
+                }
                 self.pointer += 2;
                 true
             }
@@ -158,8 +178,9 @@ fn read_computer(file_name: &str) -> Result<Computer> {
 
 pub fn solve() -> Result<()> {
     let mut computer = read_computer("input")?;
+    let computer_two = computer.clone();
 
-    computer.run(false);
+    computer.run();
 
     let part_one: String = computer
         .output
@@ -169,6 +190,15 @@ pub fn solve() -> Result<()> {
         .join(",");
 
     println!("part one result: {}", part_one);
+
+    if let Some(part_two) = (50000000..10000000000).find(|&a_value| {
+        if a_value % 1000 == 0 {
+            println!("checking {}", a_value);
+        }
+        computer_two.run_part_two(a_value)
+    }) {
+        println!("part two result: {}", part_two);
+    }
 
     Ok(())
 }
