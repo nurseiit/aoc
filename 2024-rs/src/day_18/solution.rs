@@ -63,10 +63,10 @@ fn shortest_path(
 fn part_one() -> Result<()> {
     let end_point: (usize, usize) = (70, 70);
     let input_coords = read_coordinates("input")?;
-    let coords = input_coords[0..1024].to_vec();
+    let coords = &input_coords[0..1024];
 
-    let corrupted_coords: HashSet<(usize, usize)> = HashSet::from_iter(coords.into_iter());
-
+    let corrupted_coords: HashSet<(usize, usize)> =
+        HashSet::from_iter(coords.iter().map(|coord| *coord));
     let result = shortest_path(&corrupted_coords, end_point)?;
 
     println!("part one result: {}", result);
@@ -77,16 +77,27 @@ fn part_one() -> Result<()> {
 fn part_two() -> Result<()> {
     let end_point: (usize, usize) = (70, 70);
     let input_coords = read_coordinates("input")?;
-    let mut corrupted_coords: HashSet<(usize, usize)> = HashSet::new();
 
-    if let Some(result) = (0..input_coords.len()).find(|&mid| {
-        corrupted_coords.insert(input_coords[mid]);
-        shortest_path(&corrupted_coords, end_point).is_err()
-    }) {
-        println!(
-            "part two result: {:?}",
-            (input_coords[result].1, input_coords[result].0)
-        );
+    let mut l = 0;
+    let mut r = input_coords.len() - 1;
+    let mut result: Option<(usize, usize)> = None;
+
+    while l < r {
+        let mid = (l + r) >> 1;
+        let corrupted_coords: HashSet<(usize, usize)> =
+            HashSet::from_iter(input_coords[0..mid + 1].iter().map(|coord| *coord));
+
+        if shortest_path(&corrupted_coords, end_point).is_err() {
+            r = mid - 1;
+            result = Some(input_coords[mid]);
+        } else {
+            l = mid + 1;
+        }
+    }
+
+    if let Some(result) = result {
+        // reverse since we reversed when reading the input
+        println!("part two result: {:?}", (result.1, result.0));
     } else {
         println!("part two: no answer");
     }
