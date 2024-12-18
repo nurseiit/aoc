@@ -1,4 +1,8 @@
-use std::{fs::read_to_string, i64};
+use std::{
+    collections::{HashSet, VecDeque},
+    fs::read_to_string,
+    i64,
+};
 
 use anyhow::{Context, Result};
 
@@ -8,24 +12,14 @@ struct Computer {
     program: Vec<i64>,
     pointer: usize,
     output: Vec<i64>,
-    early_exit: bool,
 }
 
 impl Computer {
     pub fn run(&mut self) {
-        while self.run_instruction(false) {}
+        while self.run_instruction() {}
     }
 
-    pub fn run_part_two(&self, a_value: i64) -> bool {
-        let mut computer = self.clone();
-
-        computer.registers[0] = a_value;
-        while computer.run_instruction(true) {}
-
-        !computer.early_exit && computer.output.len() == computer.program.len()
-    }
-
-    fn run_instruction(&mut self, should_match_program: bool) -> bool {
+    fn run_instruction(&mut self) -> bool {
         if self.pointer >= self.program.len() {
             return false;
         }
@@ -78,15 +72,7 @@ impl Computer {
                 if self.pointer + 1 >= self.program.len() {
                     return false;
                 }
-                let len = self.output.len();
                 self.output.push(self.get_combo_operand() & 7);
-                // early exit for part two
-                if should_match_program
-                    && (self.program.len() < len || self.program[len] != self.output[len])
-                {
-                    self.early_exit = true;
-                    return false;
-                }
                 self.pointer += 2;
                 true
             }
@@ -167,13 +153,11 @@ fn read_computer(file_name: &str) -> Result<Computer> {
         program,
         pointer: 0,
         output: vec![],
-        early_exit: false,
     })
 }
 
-pub fn solve() -> Result<()> {
-    let mut computer = read_computer("input")?;
-    let computer_two = computer.clone();
+fn part_one(original_computer: &Computer) {
+    let mut computer = original_computer.clone();
 
     computer.run();
 
@@ -185,18 +169,53 @@ pub fn solve() -> Result<()> {
         .join(",");
 
     println!("part one result: {}", part_one);
+}
 
-    // let start: i64 = 0;
-    let start: i64 = 16982000000;
+fn part_two(original_computer: &Computer) {
+    let mut options: VecDeque<i64> = VecDeque::from_iter(0..1000);
+    let mut was: HashSet<i64> = HashSet::new();
 
-    if let Some(part_two) = (start..i64::MAX).find(|&a_value| {
-        if a_value % 1000000 == 0 {
-            println!("checking {}", a_value);
+    let mut result: i64 = i64::MAX;
+
+    while let Some(option) = options.pop_front() {
+        let mid = option * 8;
+        let (from, to) = (mid - 100, mid + 100);
+
+        for num in from.max(0)..to {
+            if was.contains(&num) {
+                continue;
+            }
+            let mut computer = original_computer.clone();
+
+            computer.registers[0] = num;
+            computer.run();
+
+            let output = computer.output;
+            let program: Vec<i64> = (0..output.len())
+                .map(|j| computer.program[computer.program.len() - j - 1])
+                .rev()
+                .collect();
+            let is_same = output.iter().zip(program.iter()).all(|(&a, &b)| a == b);
+
+            if is_same {
+                if output.len() < computer.program.len() {
+                    options.push_back(num);
+                    was.insert(num);
+                } else if output.len() == computer.program.len() {
+                    result = result.min(num);
+                }
+            }
         }
-        computer_two.run_part_two(a_value)
-    }) {
-        println!("part two result: {}", part_two);
     }
+
+    println!("part two result: {}", result);
+}
+
+pub fn solve() -> Result<()> {
+    let computer = read_computer("input")?;
+
+    part_one(&computer);
+    part_two(&computer);
 
     Ok(())
 }
