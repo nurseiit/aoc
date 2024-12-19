@@ -4,7 +4,8 @@ use std::{
     usize,
 };
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
+use itertools::Itertools;
 
 fn read_coordinates(file_name: &str) -> Result<Vec<(usize, usize)>> {
     let input =
@@ -12,14 +13,13 @@ fn read_coordinates(file_name: &str) -> Result<Vec<(usize, usize)>> {
     input
         .lines()
         .map(|line| {
-            let coord = line
-                .split(",")
-                .map(|num| {
-                    num.parse::<usize>()
-                        .context(format!("could not format num '{}'", num,))
-                })
-                .collect::<Result<Vec<usize>>>()?;
-            Ok((coord[1], coord[0]))
+            let (x, y) = line
+                .split(',')
+                .rev()
+                .map(str::parse)
+                .collect_tuple()
+                .ok_or_else(|| anyhow!("invalid pair"))?;
+            Ok((x?, y?))
         })
         .collect()
 }
