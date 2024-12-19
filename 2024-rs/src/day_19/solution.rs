@@ -1,8 +1,11 @@
-use std::{collections::HashMap, fs::read_to_string};
+use std::{
+    collections::{HashMap, HashSet},
+    fs::read_to_string,
+};
 
 use anyhow::{anyhow, Context, Ok, Result};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 enum Color {
     White,
     Blue,
@@ -15,7 +18,7 @@ type Pattern = Vec<Color>;
 
 #[derive(Debug)]
 struct InputData {
-    allowed_patterns: Vec<Pattern>,
+    allowed_patterns: HashSet<Pattern>,
     designs: Vec<Pattern>,
 }
 
@@ -60,16 +63,16 @@ fn read_input(file_name: &str) -> Result<InputData> {
 }
 
 pub fn solve() -> Result<()> {
-    fn check_design(
+    fn count_possible_ways_for_design(
         design: &Pattern,
         index: usize,
-        allowed_patterns: &Vec<Pattern>,
-        cache: &mut HashMap<usize, bool>,
-    ) -> bool {
+        allowed_patterns: &HashSet<Pattern>,
+        cache: &mut HashMap<usize, u64>,
+    ) -> u64 {
         let len = design.len();
 
         if index == len {
-            return true;
+            return 1;
         }
 
         if let Some(cached_result) = cache.get(&index) {
@@ -80,7 +83,15 @@ pub fn solve() -> Result<()> {
             .iter()
             .filter(|pattern| pattern.len() + index <= len)
             .filter(|pattern| (0..pattern.len()).all(|i| pattern[i] == design[index + i]))
-            .any(|pattern| check_design(design, index + pattern.len(), allowed_patterns, cache));
+            .map(|pattern| {
+                count_possible_ways_for_design(
+                    design,
+                    index + pattern.len(),
+                    allowed_patterns,
+                    cache,
+                )
+            })
+            .sum();
 
         cache.insert(index, result);
 
@@ -92,15 +103,20 @@ pub fn solve() -> Result<()> {
         designs,
     } = read_input("input")?;
 
-    let result = designs
+    let results: Vec<u64> = designs
         .iter()
-        .filter(|design| {
+        .map(|design| {
             let mut cache = HashMap::new();
-            check_design(design, 0, &allowed_patterns, &mut cache)
+            count_possible_ways_for_design(design, 0, &allowed_patterns, &mut cache)
         })
-        .count();
+        .collect();
 
-    println!("part one result: {}", result);
+    println!(
+        "part one result: {}",
+        results.iter().filter(|&result| *result > 0).count()
+    );
+
+    println!("part two result: {}", results.iter().sum::<u64>());
 
     Ok(())
 }
