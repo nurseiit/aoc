@@ -1,6 +1,6 @@
-use anyhow::{Error, Result};
-use aoc_2024_rs::day_18::solution;
+use anyhow::Result;
+use aoc_2024_rs::day_19::solution;
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<()> {
     solution::solve()
 }
