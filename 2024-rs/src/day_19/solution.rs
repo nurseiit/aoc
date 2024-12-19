@@ -1,4 +1,4 @@
-use std::fs::read_to_string;
+use std::{collections::HashMap, fs::read_to_string};
 
 use anyhow::{anyhow, Context, Ok, Result};
 
@@ -60,9 +60,47 @@ fn read_input(file_name: &str) -> Result<InputData> {
 }
 
 pub fn solve() -> Result<()> {
-    let data = read_input("example")?;
+    fn check_design(
+        design: &Pattern,
+        index: usize,
+        allowed_patterns: &Vec<Pattern>,
+        cache: &mut HashMap<usize, bool>,
+    ) -> bool {
+        let len = design.len();
 
-    println!("data: {:?}", data);
+        if index == len {
+            return true;
+        }
+
+        if let Some(cached_result) = cache.get(&index) {
+            return *cached_result;
+        }
+
+        let result = allowed_patterns
+            .iter()
+            .filter(|pattern| pattern.len() + index <= len)
+            .filter(|pattern| (0..pattern.len()).all(|i| pattern[i] == design[index + i]))
+            .any(|pattern| check_design(design, index + pattern.len(), allowed_patterns, cache));
+
+        cache.insert(index, result);
+
+        result
+    }
+
+    let InputData {
+        allowed_patterns,
+        designs,
+    } = read_input("input")?;
+
+    let result = designs
+        .iter()
+        .filter(|design| {
+            let mut cache = HashMap::new();
+            check_design(design, 0, &allowed_patterns, &mut cache)
+        })
+        .count();
+
+    println!("part one result: {}", result);
 
     Ok(())
 }
