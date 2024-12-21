@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashSet, VecDeque},
-    fs::read_to_string,
-};
+use std::{collections::HashSet, fs::read_to_string, iter::repeat};
 
 use anyhow::{anyhow, Context, Ok, Result};
 
@@ -76,55 +73,83 @@ fn manhattan_dist(from: (usize, usize), to: (usize, usize)) -> usize {
     x + y
 }
 
-fn all_dir_pad_solutions_for_nums(nums: &Vec<NumPadKey>) -> Vec<Vec<DirPadKey>> {
-    fn paths_from_to(
-        from: (usize, usize),
-        to: (usize, usize),
-        num_pad: &Vec<Vec<NumPadKey>>,
-    ) -> HashSet<Vec<DirPadKey>> {
-        let (n, m) = (num_pad.len(), num_pad[0].len());
-        let mut paths = HashSet::new();
-
-        let dist = manhattan_dist(from, to);
-        let mut queue: VecDeque<(Vec<DirPadKey>, (usize, usize))> = VecDeque::new();
-        let mut was: HashSet<Vec<DirPadKey>> = HashSet::new();
-
-        queue.push_back((vec![], from));
-
-        while let Some(top) = queue.pop_front() {
-            let (mut dirs, position) = top;
-            if dirs.len() == dist {
-                if position == to {
-                    dirs.push(DirPadKey::Enter);
-                    paths.insert(dirs);
-                }
-                continue;
-            }
-            let (i, j) = position;
-            vec![
-                ((i.wrapping_sub(1), j), DirPadKey::Up),
-                ((i + 1, j), DirPadKey::Down),
-                ((i, j.wrapping_sub(1)), DirPadKey::Left),
-                ((i, j + 1), DirPadKey::Right),
-            ]
-            .iter()
-            .filter(|((ni, nj), _)| *ni < n && *nj < m && num_pad[*ni][*nj] != NumPadKey::Empty)
-            .for_each(|(next_position, dir)| {
-                let mut next_dirs = dirs.clone();
-                next_dirs.push(*dir);
-
-                if was.contains(&next_dirs) {
-                    return;
-                }
-
-                queue.push_back((next_dirs.clone(), *next_position));
-                was.insert(next_dirs);
-            });
-        }
-
-        paths
+fn paths_from_to(from: (usize, usize), to: (usize, usize)) -> HashSet<Vec<DirPadKey>> {
+    if from == to {
+        return HashSet::from_iter(vec![vec![DirPadKey::Enter]].into_iter());
+    }
+    let mut result = HashSet::new();
+    if from.0 == to.0 {
+        let dir = if from.1 < to.1 {
+            DirPadKey::Right
+        } else {
+            DirPadKey::Left
+        };
+        let dist = from.1.max(to.1) - from.1.min(to.1);
+        let mut dirs: Vec<DirPadKey> = repeat(dir).take(dist).collect();
+        dirs.push(DirPadKey::Enter);
+        result.insert(dirs);
+    }
+    if from.1 == to.1 {
+        let dir = if from.0 < to.0 {
+            DirPadKey::Down
+        } else {
+            DirPadKey::Up
+        };
+        let dist = from.0.max(to.0) - from.0.min(to.0);
+        let mut dirs: Vec<DirPadKey> = repeat(dir).take(dist).collect();
+        dirs.push(DirPadKey::Enter);
+        result.insert(dirs);
     }
 
+    if from.0 != to.0 && from.1 != to.1 {
+        {
+            let left_or_right_dir = if from.1 < to.1 {
+                DirPadKey::Right
+            } else {
+                DirPadKey::Left
+            };
+            let left_to_right = from.1.max(to.1) - from.1.min(to.1);
+            let mut dirs: Vec<DirPadKey> = repeat(left_or_right_dir).take(left_to_right).collect();
+
+            let up_or_down_dir = if from.0 < to.0 {
+                DirPadKey::Down
+            } else {
+                DirPadKey::Up
+            };
+            let up_to_down = from.0.max(to.0) - from.0.min(to.0);
+            (0..up_to_down)
+                .into_iter()
+                .for_each(|_| dirs.push(up_or_down_dir));
+            dirs.push(DirPadKey::Enter);
+            result.insert(dirs);
+        }
+        {
+            let up_or_down_dir = if from.0 < to.0 {
+                DirPadKey::Down
+            } else {
+                DirPadKey::Up
+            };
+            let up_to_down = from.0.max(to.0) - from.0.min(to.0);
+            let mut dirs: Vec<DirPadKey> = repeat(up_or_down_dir).take(up_to_down).collect();
+
+            let left_or_right_dir = if from.1 < to.1 {
+                DirPadKey::Right
+            } else {
+                DirPadKey::Left
+            };
+            let left_to_right = from.1.max(to.1) - from.1.min(to.1);
+
+            (0..left_to_right)
+                .into_iter()
+                .for_each(|_| dirs.push(left_or_right_dir));
+            dirs.push(DirPadKey::Enter);
+            result.insert(dirs);
+        }
+    }
+    result
+}
+
+fn all_dir_pad_solutions_for_nums(nums: &Vec<NumPadKey>) -> Vec<Vec<DirPadKey>> {
     fn get_position_in_num_pad(num: NumPadKey, num_pad: &Vec<Vec<NumPadKey>>) -> (usize, usize) {
         for i in 0..num_pad.len() {
             for j in 0..num_pad[i].len() {
@@ -149,7 +174,34 @@ fn all_dir_pad_solutions_for_nums(nums: &Vec<NumPadKey>) -> Vec<Vec<DirPadKey>> 
         .map(|window| {
             let from = get_position_in_num_pad(window[0], &num_pad);
             let to = get_position_in_num_pad(window[1], &num_pad);
-            paths_from_to(from, to, &num_pad)
+            paths_from_to(from, to)
+                .into_iter()
+                .filter(|path| {
+                    let (mut i, mut j) = from;
+                    let mut is_bad = false;
+                    path.iter().for_each(|dir| {
+                        match *dir {
+                            DirPadKey::Up => {
+                                i = i.wrapping_sub(1);
+                            }
+                            DirPadKey::Down => {
+                                i += 1;
+                            }
+                            DirPadKey::Left => {
+                                j = j.wrapping_sub(1);
+                            }
+                            DirPadKey::Right => {
+                                j += 1;
+                            }
+                            _ => {}
+                        };
+                        if num_pad[i][j] == NumPadKey::Empty {
+                            is_bad = true;
+                        }
+                    });
+                    !is_bad
+                })
+                .collect()
         })
         .fold(HashSet::new(), |acc, cur| {
             if acc.is_empty() {
@@ -175,54 +227,6 @@ fn all_dir_pad_solutions_for_nums(nums: &Vec<NumPadKey>) -> Vec<Vec<DirPadKey>> 
 }
 
 fn all_dir_pad_solutions_for_dirs(dirs: &Vec<DirPadKey>) -> Vec<Vec<DirPadKey>> {
-    fn paths_from_to(
-        from: (usize, usize),
-        to: (usize, usize),
-        dir_pad: &Vec<Vec<DirPadKey>>,
-    ) -> HashSet<Vec<DirPadKey>> {
-        let (n, m) = (dir_pad.len(), dir_pad[0].len());
-        let mut paths = HashSet::new();
-
-        let dist = manhattan_dist(from, to);
-        let mut queue: VecDeque<(Vec<DirPadKey>, (usize, usize))> = VecDeque::new();
-        let mut was: HashSet<Vec<DirPadKey>> = HashSet::new();
-
-        queue.push_back((vec![], from));
-
-        while let Some(top) = queue.pop_front() {
-            let (mut dirs, position) = top;
-            if dirs.len() == dist {
-                if position == to {
-                    dirs.push(DirPadKey::Enter);
-                    paths.insert(dirs);
-                }
-                continue;
-            }
-            let (i, j) = position;
-            vec![
-                ((i.wrapping_sub(1), j), DirPadKey::Up),
-                ((i + 1, j), DirPadKey::Down),
-                ((i, j.wrapping_sub(1)), DirPadKey::Left),
-                ((i, j + 1), DirPadKey::Right),
-            ]
-            .iter()
-            .filter(|((ni, nj), _)| *ni < n && *nj < m && dir_pad[*ni][*nj] != DirPadKey::Empty)
-            .for_each(|(next_position, dir)| {
-                let mut next_dirs = dirs.clone();
-                next_dirs.push(*dir);
-
-                if was.contains(&next_dirs) {
-                    return;
-                }
-
-                queue.push_back((next_dirs.clone(), *next_position));
-                was.insert(next_dirs);
-            });
-        }
-
-        paths
-    }
-
     fn get_position_in_dir_pad(dir: DirPadKey, dir_pad: &Vec<Vec<DirPadKey>>) -> (usize, usize) {
         for i in 0..dir_pad.len() {
             for j in 0..dir_pad[i].len() {
@@ -242,12 +246,39 @@ fn all_dir_pad_solutions_for_dirs(dirs: &Vec<DirPadKey>) -> Vec<Vec<DirPadKey>> 
         dirs_from_enter.push(*dir);
     }
 
-    let set = dirs_from_enter
+    let dirs = dirs_from_enter
         .windows(2)
         .map(|window| {
             let from = get_position_in_dir_pad(window[0], &dir_pad);
             let to = get_position_in_dir_pad(window[1], &dir_pad);
-            paths_from_to(from, to, &dir_pad)
+            paths_from_to(from, to)
+                .into_iter()
+                .filter(|path| {
+                    let (mut i, mut j) = from;
+                    let mut is_bad = false;
+                    path.iter().for_each(|dir| {
+                        match *dir {
+                            DirPadKey::Up => {
+                                i = i.wrapping_sub(1);
+                            }
+                            DirPadKey::Down => {
+                                i += 1;
+                            }
+                            DirPadKey::Left => {
+                                j = j.wrapping_sub(1);
+                            }
+                            DirPadKey::Right => {
+                                j += 1;
+                            }
+                            _ => {}
+                        };
+                        if dir_pad[i][j] == DirPadKey::Empty {
+                            is_bad = true;
+                        }
+                    });
+                    !is_bad
+                })
+                .collect()
         })
         .fold(HashSet::new(), |acc, cur| {
             if acc.is_empty() {
@@ -268,10 +299,12 @@ fn all_dir_pad_solutions_for_dirs(dirs: &Vec<DirPadKey>) -> Vec<Vec<DirPadKey>> 
             });
             next
         });
-    set.into_iter().collect()
+
+    dirs.into_iter().collect()
 }
 
 pub fn solve() -> Result<()> {
+    let levels_count = 2;
     let input = read_input("input")?;
 
     let result: u32 = input
@@ -279,13 +312,37 @@ pub fn solve() -> Result<()> {
         .map(|num| {
             let all_num_path_dirs = all_dir_pad_solutions_for_nums(num);
 
-            let min_for_num = all_num_path_dirs
+            println!("solving for {:?}", num);
+
+            let mut current_dirs = all_num_path_dirs;
+
+            for level in 0..levels_count {
+                let min_for_level = current_dirs
+                    .iter()
+                    .map(|result| result.len() as u32)
+                    .min()
+                    .expect("should have at least one solution");
+
+                println!(
+                    "level {} with len {} and answer = {}...",
+                    level,
+                    current_dirs.len(),
+                    min_for_level
+                );
+
+                current_dirs = current_dirs
+                    .iter()
+                    .flat_map(|dir_path_dirs| all_dir_pad_solutions_for_dirs(&dir_path_dirs))
+                    .collect();
+            }
+
+            let min_for_num = current_dirs
                 .iter()
-                .flat_map(|num_path_dirs| all_dir_pad_solutions_for_dirs(num_path_dirs))
-                .flat_map(|dir_path_dirs| all_dir_pad_solutions_for_dirs(&dir_path_dirs))
                 .map(|result| result.len() as u32)
                 .min()
                 .expect("should have at least one solution");
+
+            println!("len = {}, answer = {}", current_dirs.len(), min_for_num);
 
             let int: u32 = num.iter().fold(0, |acc, x| match *x {
                 NumPadKey::Number(digit) => acc * 10 + digit,
