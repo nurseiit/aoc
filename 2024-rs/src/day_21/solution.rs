@@ -1,11 +1,10 @@
-use std::{collections::HashSet, fs::read_to_string, iter::repeat};
-
 use anyhow::{anyhow, Context, Ok, Result};
+use std::{collections::HashMap, fs::read_to_string};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 enum NumPadKey {
     Enter,
-    Number(u32),
+    Number(u64),
     Empty,
 }
 
@@ -20,7 +19,7 @@ fn read_input(file_name: &str) -> Result<Vec<Vec<NumPadKey>>> {
                 .map(|char| match char {
                     'A' => Ok(NumPadKey::Enter),
                     _ if char.is_ascii_digit() => Ok(NumPadKey::Number(
-                        char.to_digit(10).expect("should be ascii digit"),
+                        char.to_digit(10).expect("should be ascii digit").into(),
                     )),
                     _ => Err(anyhow!("unknown num pad key '{}'", char)),
                 })
@@ -38,313 +37,276 @@ enum DirPadKey {
     Enter,
     Empty,
 }
+const NUM_PAD: [[NumPadKey; 3]; 4] = [
+    [
+        NumPadKey::Number(7),
+        NumPadKey::Number(8),
+        NumPadKey::Number(9),
+    ],
+    [
+        NumPadKey::Number(4),
+        NumPadKey::Number(5),
+        NumPadKey::Number(6),
+    ],
+    [
+        NumPadKey::Number(1),
+        NumPadKey::Number(2),
+        NumPadKey::Number(3),
+    ],
+    [NumPadKey::Empty, NumPadKey::Number(0), NumPadKey::Enter],
+];
 
-fn get_num_pad_matrix() -> Vec<Vec<NumPadKey>> {
-    vec![
-        vec![
-            NumPadKey::Number(7),
-            NumPadKey::Number(8),
-            NumPadKey::Number(9),
-        ],
-        vec![
-            NumPadKey::Number(4),
-            NumPadKey::Number(5),
-            NumPadKey::Number(6),
-        ],
-        vec![
-            NumPadKey::Number(1),
-            NumPadKey::Number(2),
-            NumPadKey::Number(3),
-        ],
-        vec![NumPadKey::Empty, NumPadKey::Number(0), NumPadKey::Enter],
-    ]
-}
+const DIR_PAD: [[DirPadKey; 3]; 2] = [
+    [DirPadKey::Empty, DirPadKey::Up, DirPadKey::Enter],
+    [DirPadKey::Left, DirPadKey::Down, DirPadKey::Right],
+];
 
-fn get_dir_pad_matrix() -> Vec<Vec<DirPadKey>> {
-    vec![
-        vec![DirPadKey::Empty, DirPadKey::Up, DirPadKey::Enter],
-        vec![DirPadKey::Left, DirPadKey::Down, DirPadKey::Right],
-    ]
-}
+fn shortest_num_pad_paths(from: NumPadKey, to: NumPadKey) -> Vec<Vec<DirPadKey>> {
+    let mut start = (0, 0);
+    let mut end = (0, 0);
 
-fn manhattan_dist(from: (usize, usize), to: (usize, usize)) -> usize {
-    let x = from.0.max(to.0) - from.0.min(to.0);
-    let y = from.1.max(to.1) - from.1.min(to.1);
-    x + y
-}
-
-fn paths_from_to(from: (usize, usize), to: (usize, usize)) -> HashSet<Vec<DirPadKey>> {
-    if from == to {
-        return HashSet::from_iter(vec![vec![DirPadKey::Enter]].into_iter());
-    }
-    let mut result = HashSet::new();
-    if from.0 == to.0 {
-        let dir = if from.1 < to.1 {
-            DirPadKey::Right
-        } else {
-            DirPadKey::Left
-        };
-        let dist = from.1.max(to.1) - from.1.min(to.1);
-        let mut dirs: Vec<DirPadKey> = repeat(dir).take(dist).collect();
-        dirs.push(DirPadKey::Enter);
-        result.insert(dirs);
-    }
-    if from.1 == to.1 {
-        let dir = if from.0 < to.0 {
-            DirPadKey::Down
-        } else {
-            DirPadKey::Up
-        };
-        let dist = from.0.max(to.0) - from.0.min(to.0);
-        let mut dirs: Vec<DirPadKey> = repeat(dir).take(dist).collect();
-        dirs.push(DirPadKey::Enter);
-        result.insert(dirs);
-    }
-
-    if from.0 != to.0 && from.1 != to.1 {
-        {
-            let left_or_right_dir = if from.1 < to.1 {
-                DirPadKey::Right
-            } else {
-                DirPadKey::Left
-            };
-            let left_to_right = from.1.max(to.1) - from.1.min(to.1);
-            let mut dirs: Vec<DirPadKey> = repeat(left_or_right_dir).take(left_to_right).collect();
-
-            let up_or_down_dir = if from.0 < to.0 {
-                DirPadKey::Down
-            } else {
-                DirPadKey::Up
-            };
-            let up_to_down = from.0.max(to.0) - from.0.min(to.0);
-            (0..up_to_down)
-                .into_iter()
-                .for_each(|_| dirs.push(up_or_down_dir));
-            dirs.push(DirPadKey::Enter);
-            result.insert(dirs);
-        }
-        {
-            let up_or_down_dir = if from.0 < to.0 {
-                DirPadKey::Down
-            } else {
-                DirPadKey::Up
-            };
-            let up_to_down = from.0.max(to.0) - from.0.min(to.0);
-            let mut dirs: Vec<DirPadKey> = repeat(up_or_down_dir).take(up_to_down).collect();
-
-            let left_or_right_dir = if from.1 < to.1 {
-                DirPadKey::Right
-            } else {
-                DirPadKey::Left
-            };
-            let left_to_right = from.1.max(to.1) - from.1.min(to.1);
-
-            (0..left_to_right)
-                .into_iter()
-                .for_each(|_| dirs.push(left_or_right_dir));
-            dirs.push(DirPadKey::Enter);
-            result.insert(dirs);
+    for i in 0..NUM_PAD.len() {
+        for j in 0..NUM_PAD[i].len() {
+            if NUM_PAD[i][j] == from {
+                start = (i, j);
+            }
+            if NUM_PAD[i][j] == to {
+                end = (i, j);
+            }
         }
     }
+
+    let is_up = end.0 < start.0;
+    let is_left = end.1 < start.1;
+
+    let dy = if is_up {
+        start.0 - end.0
+    } else {
+        end.0 - start.0
+    };
+    let dx = if is_left {
+        start.1 - end.1
+    } else {
+        end.1 - start.1
+    };
+
+    let mut result = vec![];
+
+    // horizontal
+    let mut horizontal = vec![];
+    let mut is_horizontal_good = true;
+    if dx > 0 {
+        for x in 1..=dx {
+            let (ni, nj) = (start.0, if is_left { start.1 - x } else { start.1 + x });
+            if NUM_PAD[ni][nj] == NumPadKey::Empty {
+                is_horizontal_good = false;
+            }
+            horizontal.push(if is_left {
+                DirPadKey::Left
+            } else {
+                DirPadKey::Right
+            });
+        }
+    }
+    if dy > 0 {
+        for y in 1..=dy {
+            let (ni, nj) = (if is_up { start.0 - y } else { start.0 + y }, end.1);
+            if NUM_PAD[ni][nj] == NumPadKey::Empty {
+                is_horizontal_good = false;
+            }
+            horizontal.push(if is_up {
+                DirPadKey::Up
+            } else {
+                DirPadKey::Down
+            });
+        }
+    }
+    // vertical
+    let mut vertical = vec![];
+    let mut is_vertical_good = true;
+    if dy > 0 {
+        for y in 1..=dy {
+            let (ni, nj) = (if is_up { start.0 - y } else { start.0 + y }, start.1);
+            if NUM_PAD[ni][nj] == NumPadKey::Empty {
+                is_vertical_good = false;
+            }
+            vertical.push(if is_up {
+                DirPadKey::Up
+            } else {
+                DirPadKey::Down
+            });
+        }
+    }
+    if dx > 0 {
+        for x in 1..=dx {
+            let (ni, nj) = (end.0, if is_left { start.1 - x } else { start.1 + x });
+            if NUM_PAD[ni][nj] == NumPadKey::Empty {
+                is_vertical_good = false;
+            }
+            vertical.push(if is_left {
+                DirPadKey::Left
+            } else {
+                DirPadKey::Right
+            });
+        }
+    }
+
+    if is_horizontal_good && (dx > 0 && dy > 0) {
+        horizontal.push(DirPadKey::Enter);
+        result.push(horizontal);
+    }
+    if is_vertical_good {
+        vertical.push(DirPadKey::Enter);
+        result.push(vertical);
+    }
+
     result
 }
 
-fn all_dir_pad_solutions_for_nums(nums: &Vec<NumPadKey>) -> Vec<Vec<DirPadKey>> {
-    fn get_position_in_num_pad(num: NumPadKey, num_pad: &Vec<Vec<NumPadKey>>) -> (usize, usize) {
-        for i in 0..num_pad.len() {
-            for j in 0..num_pad[i].len() {
-                if num == num_pad[i][j] {
-                    return (i, j);
-                }
-            }
-        }
-        (0, 0)
+fn shortest_dir_pad_paths(from: DirPadKey, to: DirPadKey) -> Vec<Vec<DirPadKey>> {
+    match from {
+        DirPadKey::Up => match to {
+            DirPadKey::Up => vec![vec![DirPadKey::Enter]],
+            DirPadKey::Down => vec![vec![DirPadKey::Down, DirPadKey::Enter]],
+            DirPadKey::Left => vec![vec![DirPadKey::Down, DirPadKey::Left, DirPadKey::Enter]],
+            DirPadKey::Right => vec![
+                vec![DirPadKey::Down, DirPadKey::Right, DirPadKey::Enter],
+                vec![DirPadKey::Right, DirPadKey::Down, DirPadKey::Enter],
+            ],
+            DirPadKey::Enter => vec![vec![DirPadKey::Right, DirPadKey::Enter]],
+            _ => vec![],
+        },
+        DirPadKey::Down => match to {
+            DirPadKey::Up => vec![vec![DirPadKey::Up, DirPadKey::Enter]],
+            DirPadKey::Down => vec![vec![DirPadKey::Enter]],
+            DirPadKey::Left => vec![vec![DirPadKey::Left, DirPadKey::Enter]],
+            DirPadKey::Right => vec![vec![DirPadKey::Right, DirPadKey::Enter]],
+            DirPadKey::Enter => vec![
+                vec![DirPadKey::Up, DirPadKey::Right, DirPadKey::Enter],
+                vec![DirPadKey::Right, DirPadKey::Up, DirPadKey::Enter],
+            ],
+            _ => vec![],
+        },
+        DirPadKey::Left => match to {
+            DirPadKey::Up => vec![vec![DirPadKey::Right, DirPadKey::Up, DirPadKey::Enter]],
+            DirPadKey::Down => vec![vec![DirPadKey::Right, DirPadKey::Enter]],
+            DirPadKey::Left => vec![vec![DirPadKey::Enter]],
+            DirPadKey::Right => vec![vec![DirPadKey::Right, DirPadKey::Right, DirPadKey::Enter]],
+            DirPadKey::Enter => vec![
+                vec![
+                    DirPadKey::Right,
+                    DirPadKey::Up,
+                    DirPadKey::Right,
+                    DirPadKey::Enter,
+                ],
+                vec![
+                    DirPadKey::Right,
+                    DirPadKey::Right,
+                    DirPadKey::Up,
+                    DirPadKey::Enter,
+                ],
+            ],
+            _ => vec![],
+        },
+        DirPadKey::Right => match to {
+            DirPadKey::Up => vec![
+                vec![DirPadKey::Left, DirPadKey::Up, DirPadKey::Enter],
+                vec![DirPadKey::Up, DirPadKey::Left, DirPadKey::Enter],
+            ],
+            DirPadKey::Down => vec![vec![DirPadKey::Left, DirPadKey::Enter]],
+            DirPadKey::Left => vec![vec![DirPadKey::Left, DirPadKey::Left, DirPadKey::Enter]],
+            DirPadKey::Right => vec![vec![DirPadKey::Enter]],
+            DirPadKey::Enter => vec![vec![DirPadKey::Up, DirPadKey::Enter]],
+            _ => vec![],
+        },
+        DirPadKey::Enter => match to {
+            DirPadKey::Up => vec![vec![DirPadKey::Left, DirPadKey::Enter]],
+            DirPadKey::Down => vec![
+                vec![DirPadKey::Left, DirPadKey::Down, DirPadKey::Enter],
+                vec![DirPadKey::Down, DirPadKey::Left, DirPadKey::Enter],
+            ],
+            DirPadKey::Left => vec![
+                vec![
+                    DirPadKey::Down,
+                    DirPadKey::Left,
+                    DirPadKey::Left,
+                    DirPadKey::Enter,
+                ],
+                vec![
+                    DirPadKey::Left,
+                    DirPadKey::Down,
+                    DirPadKey::Left,
+                    DirPadKey::Enter,
+                ],
+            ],
+            DirPadKey::Right => vec![vec![DirPadKey::Down, DirPadKey::Enter]],
+            DirPadKey::Enter => vec![vec![DirPadKey::Enter]],
+            _ => vec![],
+        },
+        _ => vec![],
     }
-
-    let num_pad = get_num_pad_matrix();
-
-    let mut nums_from_enter = vec![NumPadKey::Enter];
-
-    for num in nums {
-        nums_from_enter.push(*num);
-    }
-
-    let set = nums_from_enter
-        .windows(2)
-        .map(|window| {
-            let from = get_position_in_num_pad(window[0], &num_pad);
-            let to = get_position_in_num_pad(window[1], &num_pad);
-            paths_from_to(from, to)
-                .into_iter()
-                .filter(|path| {
-                    let (mut i, mut j) = from;
-                    let mut is_bad = false;
-                    path.iter().for_each(|dir| {
-                        match *dir {
-                            DirPadKey::Up => {
-                                i = i.wrapping_sub(1);
-                            }
-                            DirPadKey::Down => {
-                                i += 1;
-                            }
-                            DirPadKey::Left => {
-                                j = j.wrapping_sub(1);
-                            }
-                            DirPadKey::Right => {
-                                j += 1;
-                            }
-                            _ => {}
-                        };
-                        if num_pad[i][j] == NumPadKey::Empty {
-                            is_bad = true;
-                        }
-                    });
-                    !is_bad
-                })
-                .collect()
-        })
-        .fold(HashSet::new(), |acc, cur| {
-            if acc.is_empty() {
-                return cur;
-            }
-            let mut next = HashSet::new();
-            acc.iter().for_each(|prev_path| {
-                cur.iter().for_each(|curr_path| {
-                    let mut item = vec![];
-                    for path in prev_path {
-                        item.push(*path);
-                    }
-                    for path in curr_path {
-                        item.push(*path);
-                    }
-                    next.insert(item);
-                });
-            });
-            next
-        });
-
-    set.into_iter().collect()
 }
 
-fn all_dir_pad_solutions_for_dirs(dirs: &Vec<DirPadKey>) -> Vec<Vec<DirPadKey>> {
-    fn get_position_in_dir_pad(dir: DirPadKey, dir_pad: &Vec<Vec<DirPadKey>>) -> (usize, usize) {
-        for i in 0..dir_pad.len() {
-            for j in 0..dir_pad[i].len() {
-                if dir == dir_pad[i][j] {
-                    return (i, j);
-                }
-            }
-        }
-        (0, 0)
+fn all_dir_pad_solutions_for_nums(nums: &Vec<NumPadKey>) -> Vec<Vec<Vec<DirPadKey>>> {
+    let nums_from_enter = vec![vec![NumPadKey::Enter], nums.clone()].concat();
+
+    nums_from_enter
+        .windows(2)
+        .map(|window| shortest_num_pad_paths(window[0], window[1]))
+        .collect()
+}
+
+fn count_paths(
+    dir: &Vec<DirPadKey>,
+    level: usize,
+    cache: &mut HashMap<(Vec<DirPadKey>, usize), u64>,
+) -> u64 {
+    if level == 0 {
+        return dir.len() as u64;
     }
 
-    let dir_pad = get_dir_pad_matrix();
-
-    let mut dirs_from_enter = vec![DirPadKey::Enter];
-
-    for dir in dirs {
-        dirs_from_enter.push(*dir);
+    if let Some(cached) = cache.get(&(dir.clone(), level)) {
+        return *cached;
     }
 
-    let dirs = dirs_from_enter
+    let dirs_from_enter = vec![vec![DirPadKey::Enter], dir.clone()].concat();
+
+    let computed = dirs_from_enter
         .windows(2)
         .map(|window| {
-            let from = get_position_in_dir_pad(window[0], &dir_pad);
-            let to = get_position_in_dir_pad(window[1], &dir_pad);
-            paths_from_to(from, to)
+            shortest_dir_pad_paths(window[0], window[1])
                 .into_iter()
-                .filter(|path| {
-                    let (mut i, mut j) = from;
-                    let mut is_bad = false;
-                    path.iter().for_each(|dir| {
-                        match *dir {
-                            DirPadKey::Up => {
-                                i = i.wrapping_sub(1);
-                            }
-                            DirPadKey::Down => {
-                                i += 1;
-                            }
-                            DirPadKey::Left => {
-                                j = j.wrapping_sub(1);
-                            }
-                            DirPadKey::Right => {
-                                j += 1;
-                            }
-                            _ => {}
-                        };
-                        if dir_pad[i][j] == DirPadKey::Empty {
-                            is_bad = true;
-                        }
-                    });
-                    !is_bad
-                })
-                .collect()
+                .map(|path| count_paths(&path, level - 1, cache))
+                .min()
+                .expect("should have it")
         })
-        .fold(HashSet::new(), |acc, cur| {
-            if acc.is_empty() {
-                return cur;
-            }
-            let mut next = HashSet::new();
-            acc.iter().for_each(|prev_path| {
-                cur.iter().for_each(|curr_path| {
-                    let mut item = vec![];
-                    for path in prev_path {
-                        item.push(*path);
-                    }
-                    for path in curr_path {
-                        item.push(*path);
-                    }
-                    next.insert(item);
-                });
-            });
-            next
-        });
+        .sum::<u64>();
 
-    dirs.into_iter().collect()
+    cache.insert((dir.clone(), level), computed);
+
+    return computed;
 }
 
 pub fn solve() -> Result<()> {
-    let levels_count = 2;
+    let levels_count = 25;
     let input = read_input("input")?;
 
-    let result: u32 = input
+    let mut cache: HashMap<(Vec<DirPadKey>, usize), u64> = HashMap::new();
+
+    let result: u64 = input
         .iter()
         .map(|num| {
-            let all_num_path_dirs = all_dir_pad_solutions_for_nums(num);
-
-            println!("solving for {:?}", num);
-
-            let mut current_dirs = all_num_path_dirs;
-
-            for level in 0..levels_count {
-                let min_for_level = current_dirs
-                    .iter()
-                    .map(|result| result.len() as u32)
-                    .min()
-                    .expect("should have at least one solution");
-
-                println!(
-                    "level {} with len {} and answer = {}...",
-                    level,
-                    current_dirs.len(),
-                    min_for_level
-                );
-
-                current_dirs = current_dirs
-                    .iter()
-                    .flat_map(|dir_path_dirs| all_dir_pad_solutions_for_dirs(&dir_path_dirs))
-                    .collect();
-            }
-
-            let min_for_num = current_dirs
+            let min_for_num = all_dir_pad_solutions_for_nums(num)
                 .iter()
-                .map(|result| result.len() as u32)
-                .min()
-                .expect("should have at least one solution");
+                .map(|dirs| {
+                    dirs.iter()
+                        .map(|dir| count_paths(dir, levels_count, &mut cache))
+                        .min()
+                        .unwrap()
+                })
+                .sum::<u64>();
 
-            println!("len = {}, answer = {}", current_dirs.len(), min_for_num);
-
-            let int: u32 = num.iter().fold(0, |acc, x| match *x {
+            let int: u64 = num.iter().fold(0, |acc, x| match *x {
                 NumPadKey::Number(digit) => acc * 10 + digit,
                 _ => acc,
             });
@@ -353,7 +315,7 @@ pub fn solve() -> Result<()> {
         })
         .sum();
 
-    println!("part one result: {}", result);
+    println!("result: {}", result);
 
     Ok(())
 }
