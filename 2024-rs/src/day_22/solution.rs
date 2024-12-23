@@ -3,15 +3,15 @@ use std::{collections::HashMap, fs::read_to_string};
 use anyhow::{Context, Result};
 use itertools::Itertools;
 
-fn prune(num: i64) -> i64 {
-    num % 16777216
-}
-
-fn mix(secret: i64, num: i64) -> i64 {
-    num ^ secret
-}
-
 fn next_secret(mut secret: i64) -> i64 {
+    fn prune(num: i64) -> i64 {
+        num % 16777216
+    }
+
+    fn mix(secret: i64, num: i64) -> i64 {
+        num ^ secret
+    }
+
     let first = secret * 64;
     secret = mix(secret, first);
     secret = prune(secret);
@@ -52,7 +52,7 @@ fn part_one() -> Result<()> {
 fn part_two() -> Result<()> {
     let secrets = read_secrets("input")?;
 
-    let mut cache_per_secret: Vec<HashMap<(i64, i64, i64, i64), i64>> = vec![];
+    let mut cache_per_secret: Vec<HashMap<_, i64>> = vec![];
 
     secrets.iter().enumerate().for_each(|(secret_i, &secret)| {
         cache_per_secret.push(HashMap::new());
@@ -65,21 +65,20 @@ fn part_two() -> Result<()> {
             secret_inner = next_secret(secret_inner);
         });
 
-        let diffs = seq
-            .windows(2)
+        seq.windows(2)
             .map(|window| window[0] - window[1])
             .tuple_windows::<(_, _, _, _)>()
             .enumerate()
             .for_each(|(i, key)| {
-                let val = seq[i + 4];
                 if cache_per_secret[secret_i].contains_key(&key) {
                     return;
                 }
+                let val = seq[i + 4];
                 cache_per_secret[secret_i].insert(key, val);
             });
     });
 
-    let mut results_per_quarter: HashMap<(i64, i64, i64, i64), i64> = HashMap::new();
+    let mut results_per_quarter = HashMap::new();
 
     cache_per_secret.iter().for_each(|cache| {
         cache.iter().for_each(|(&key, &val)| {
